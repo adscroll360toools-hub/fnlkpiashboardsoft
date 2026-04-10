@@ -17,6 +17,7 @@ import { LeaderboardWidget } from "@/components/LeaderboardWidget";
 import { useTask } from "@/context/TaskContext";
 import { useKPI } from "@/context/KPIContext";
 import { useAuth } from "@/context/AuthContext";
+import { TaskDashboard } from "@/components/TaskDashboard";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -24,7 +25,6 @@ export default function Dashboard() {
   const { kpis } = useKPI();
   const { currentUser } = useAuth();
   
-  const todayTaskCount = tasks.filter(t => new Date(t.createdAt).toDateString() === new Date().toDateString()).length;
   const compKpis = kpis.filter(k => k.type === "Company");
   
   const avgMonthlyProgress = compKpis.length > 0 ? 
@@ -57,6 +57,10 @@ export default function Dashboard() {
         <StatCard title="Company KPIs" value={compKpis.length.toString()} subtitle="Active targets" icon={Target} variant="primary" />
         <StatCard title="Overall Score" value={`${Math.floor(avgMonthlyProgress)}%`} subtitle="Target progress" icon={Trophy} />
         <StatCard title="Online Team" value="Live" subtitle="Check attendance below" icon={CalendarClock} />
+      </motion.div>
+
+      <motion.div variants={fadeUp} className="rounded-2xl bg-card p-5 shadow-card">
+        <TaskDashboard scope="company" title="Task dashboard" />
       </motion.div>
 
       <div className="grid gap-6 lg:grid-cols-12">

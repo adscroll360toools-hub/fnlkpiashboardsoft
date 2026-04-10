@@ -1,4 +1,4 @@
-# ✈️ Ace Pilot — KPI & Team Management Platform
+# Zaptiz — KPI & Team Management Platform
 
 A full-stack team performance management application featuring role-based portals for **Admins**, **Controllers**, and **Employees**. Built with React + Vite on the frontend and Express.js + **MongoDB Atlas** on the backend.
 
@@ -7,7 +7,7 @@ A full-stack team performance management application featuring role-based portal
 ## 📁 Project Structure
 
 ```
-ace-pilot/
+zaptiz/
 ├── frontend/                    # React + Vite + TypeScript SPA
 │   ├── src/
 │   │   ├── components/          # Shared UI components & layouts
@@ -32,6 +32,7 @@ ace-pilot/
 │   │   ├── models/
 │   │   │   ├── User.js
 │   │   │   ├── Task.js
+│   │   │   ├── CompanyRole.js
 │   │   │   ├── Attendance.js
 │   │   │   ├── BreakRequest.js
 │   │   │   └── KPI.js
@@ -40,7 +41,8 @@ ace-pilot/
 │   │   │   ├── users.js         # CRUD /api/users + POST /api/users/login
 │   │   │   ├── tasks.js         # CRUD /api/tasks
 │   │   │   ├── attendance.js    # /api/attendance + /api/attendance/breaks
-│   │   │   └── kpis.js          # CRUD /api/kpis
+│   │   │   ├── kpis.js          # CRUD /api/kpis
+│   │   │   └── roles.js         # /api/roles (company roles)
 │   │   └── index.js             # Server entry point
 │   ├── .env.example             # MONGO_URI, PORT, FRONTEND_URL
 │   └── package.json
@@ -73,8 +75,8 @@ ace-pilot/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/ace-pilot.git
-cd ace-pilot
+git clone https://github.com/your-org/zaptiz.git
+cd zaptiz
 ```
 
 ---
@@ -220,6 +222,6 @@ npm test
 
 ## 📄 License
 
-MIT © Ace Pilot Team
+MIT © Zaptiz
 
 # FNLKPIDashboardSoft

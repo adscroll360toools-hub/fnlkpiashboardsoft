@@ -42,6 +42,13 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 const SESSION_KEY = "zaptiz_session_v1";
 const LEGACY_SESSION_KEY = "adscroll360_session_v4";
+export const ZAPTIZ_OVERDUE_BANNER_KEY = "zaptiz_overdue_task_banner_dismissed";
+
+function clearOverdueBannerDismissal() {
+    try {
+        sessionStorage.removeItem(ZAPTIZ_OVERDUE_BANNER_KEY);
+    } catch { /* ignore */ }
+}
 
 function mapUser(u: any): AppUser {
     return {
@@ -123,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const { user } = await api.superAdmin.login(email, password);
                 const found = mapUser(user);
                 setCurrentUser(found);
+                clearOverdueBannerDismissal();
                 return { success: true, role: found.role };
             }
 
@@ -130,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const { user } = await api.users.login(email, password);
             const found = mapUser(user);
             setCurrentUser(found);
+            clearOverdueBannerDismissal();
             return { success: true, role: found.role };
         } catch (err: any) {
             return { success: false, error: err.message || "Invalid email or password." };
@@ -139,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const logout = () => {
         setCurrentUser(null);
         localStorage.removeItem(SESSION_KEY);
+        clearOverdueBannerDismissal();
     };
 
     const addUser = async (user: Omit<AppUser, "id" | "createdAt">) => {

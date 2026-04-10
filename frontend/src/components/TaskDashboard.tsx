@@ -82,16 +82,18 @@ export function TaskDashboard({ scope, title = "Task dashboard" }: { scope: Scop
   const showAssignee = scope === "company";
 
   const sections: { key: keyof typeof sectionStyles; label: string; items: AppTask[]; hint: string }[] = [
-    { key: "pending", label: "Pending tasks", items: pending, hint: "One-time & deadline work not yet overdue" },
-    { key: "daily", label: "Daily tasks", items: daily, hint: "Recurring daily assignments" },
-    { key: "expired", label: "Expired / overdue", items: expired, hint: "Past deadline — needs attention" },
+    { key: "pending", label: "Pending Tasks", items: pending, hint: "One-time and deadline-based work not yet overdue" },
+    { key: "daily", label: "Daily Tasks", items: daily, hint: "Recurring daily assignments" },
+    { key: "expired", label: "Expired Tasks", items: expired, hint: "Overdue — needs immediate attention" },
   ];
 
   return (
     <motion.div variants={fadeUp} className="space-y-4">
       <div>
         <h2 className="text-base font-semibold text-foreground">{title}</h2>
-        <p className="text-xs text-muted-foreground">Color-coded: sky = pending, violet = daily, rose = overdue</p>
+        <p className="text-xs text-muted-foreground">
+          Pending (sky) · Daily (violet) · Expired / overdue (rose)
+        </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
         {sections.map(({ key, label, items, hint }) => {

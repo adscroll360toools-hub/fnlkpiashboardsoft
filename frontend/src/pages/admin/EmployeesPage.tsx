@@ -13,6 +13,8 @@ import { useKPI } from "@/context/KPIContext";
 const DEPARTMENTS = ["CEO", "Management", "Content", "Design", "Marketing", "Video", "Analytics", "Other"];
 const ROLES = ["Core Admin", "Project Manager", "Video Editor", "Graphic Designer", "Content Writer", "Marketing Strategist", "Content Strategist", "Senior Graphic Designer", "Business Analyst", "Other"];
 
+const PROTECTED_OWNER_EMAILS = ["basith@adscroll360.com", "basith@zaptiz.com"];
+
 const emptyForm = { name: "", email: "", role: "employee" as UserRole, position: ROLES[ ROLES.length - 1], department: DEPARTMENTS[2] };
 
 export default function EmployeesPage() {
@@ -77,7 +79,7 @@ export default function EmployeesPage() {
 
   const handleDelete = async (id: string) => {
     const emp = users.find((e) => e.id === id);
-    if (emp?.email === "basith@adscroll360.com") {
+    if (emp?.email && PROTECTED_OWNER_EMAILS.includes(emp.email.toLowerCase())) {
         toast.error("Cannot remove super admin");
         setMenuOpen(null);
         return;
@@ -232,7 +234,7 @@ export default function EmployeesPage() {
                                 <button onClick={() => openEdit(emp)} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium text-foreground hover:bg-muted">
                                   <Edit className="h-3.5 w-3.5" /> Edit Details
                                 </button>
-                                {isAdmin && emp.email !== "basith@adscroll360.com" && (
+                                {isAdmin && !PROTECTED_OWNER_EMAILS.includes(emp.email.toLowerCase()) && (
                                   <button onClick={() => handleDelete(emp.id)} className="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium text-destructive hover:bg-destructive/10">
                                     <Trash2 className="h-3.5 w-3.5" /> Remove Account
                                   </button>

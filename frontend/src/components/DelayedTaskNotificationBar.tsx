@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { X, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, ZAPTIZ_OVERDUE_BANNER_KEY } from "@/context/AuthContext";
 import { useTask } from "@/context/TaskContext";
 import { isTaskCompleted, isTaskOverdue, formatDelayLabel } from "@/lib/taskHelpers";
 
-const SESSION_DISMISS_KEY = "zaptiz_overdue_task_banner_dismissed";
+const SESSION_DISMISS_KEY = ZAPTIZ_OVERDUE_BANNER_KEY;
 
 type Scope = "self" | "company";
 

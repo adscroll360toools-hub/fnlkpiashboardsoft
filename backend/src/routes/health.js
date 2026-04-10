@@ -11,7 +11,7 @@ router.get('/', (_req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    service: 'ace-pilot-backend',
+    service: 'zaptiz-backend',
     version: '1.0.0',
   });
 });

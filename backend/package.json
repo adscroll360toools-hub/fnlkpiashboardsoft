@@ -1,7 +1,7 @@
 {
-  "name": "ace-pilot-backend",
+  "name": "zaptiz-backend",
   "version": "1.0.0",
-  "description": "Express.js + MongoDB API server for Ace Pilot",
+  "description": "Express.js + MongoDB API server for Zaptiz",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
