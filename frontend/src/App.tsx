@@ -31,6 +31,7 @@ import RewardsPage from "./pages/admin/RewardsPage";
 import SkillsPage from "./pages/admin/SkillsPage";
 import StandupsPage from "./pages/admin/StandupsPage";
 import UserManagementPage from "./pages/admin/UserManagementPage";
+import RolesPage from "./pages/admin/RolesPage";
 import AttendanceControlPage from "./pages/admin/AttendanceControlPage";
 import TaskAnalyticsPage from "./pages/TaskAnalyticsPage";
 
@@ -103,6 +104,7 @@ function AppRoutes() {
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/admin/users" element={<UserManagementPage />} />
+          <Route path="/admin/roles" element={<RolesPage />} />
           <Route path="/admin/attendance-control" element={<AttendanceControlPage />} />
           <Route path="/admin/kpi" element={<KPITargetsPage />} />
           <Route path="/admin/rewards" element={<RewardsPage />} />
@@ -119,6 +121,7 @@ function AppRoutes() {
           <Route path="/controller/kpi" element={<KPITargetsPage />} />
           <Route path="/controller/standups" element={<StandupsPage />} />
           <Route path="/controller/settings" element={<PortalSettingsPage />} />
+          <Route path="/controller/roles" element={<RolesPage />} />
         </Route>
 
         {/* ── Employee portal ──────────────────────────────────── */}

@@ -39,7 +39,7 @@ export default function SuperAdminLayout() {
           </div>
           {sidebarOpen && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
-              <div className="text-white font-bold text-sm leading-tight">AdScroll360</div>
+              <div className="text-white font-bold text-sm leading-tight">Zaptiz</div>
               <div className="text-blue-400 text-xs font-medium">Super Admin</div>
             </motion.div>
           )}

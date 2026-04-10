@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useTask } from "@/context/TaskContext";
 import { useAttendance } from "@/context/AttendanceContext";
 import { useNotification } from "@/context/NotificationContext";
+import { DelayedTaskNotificationBar } from "@/components/DelayedTaskNotificationBar";
 
 interface Notification {
   id: string;
@@ -287,6 +288,7 @@ export function AppLayout() {
               </div>
             </div>
           </header>
+          <DelayedTaskNotificationBar scope="company" />
           <main className="flex-1 overflow-auto p-6 lg:p-8">
             <Outlet />
           </main>

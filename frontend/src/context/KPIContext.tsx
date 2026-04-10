@@ -49,8 +49,10 @@ interface KPIContextType {
 
 const KPIContext = createContext<KPIContextType | null>(null);
 
-const METRICS_KEY = "adscroll360_metrics_v4";
-const SCORES_KEY  = "adscroll360_scores_v4";
+const METRICS_KEY = "zaptiz_metrics_v1";
+const SCORES_KEY  = "zaptiz_scores_v1";
+const METRICS_LEGACY = "adscroll360_metrics_v4";
+const SCORES_LEGACY  = "adscroll360_scores_v4";
 
 const DEFAULT_METRICS: QualityMetric[] = [
     { id: "1", metric: "Quality",          weight: 40, description: "Accuracy, detail, and polish" },
@@ -62,6 +64,26 @@ const DEFAULT_METRICS: QualityMetric[] = [
 function loadLocal<T>(key: string, fallback: T): T {
     try { const d = localStorage.getItem(key); if (d) return JSON.parse(d); } catch {}
     return fallback;
+}
+
+function loadMetricsInit(): QualityMetric[] {
+    try {
+        const n = localStorage.getItem(METRICS_KEY);
+        if (n) return JSON.parse(n);
+        const o = localStorage.getItem(METRICS_LEGACY);
+        if (o) return JSON.parse(o);
+    } catch {}
+    return DEFAULT_METRICS;
+}
+
+function loadScoresInit(): AppQualityScore[] {
+    try {
+        const n = localStorage.getItem(SCORES_KEY);
+        if (n) return JSON.parse(n);
+        const o = localStorage.getItem(SCORES_LEGACY);
+        if (o) return JSON.parse(o);
+    } catch {}
+    return [];
 }
 
 function mapKPI(k: any): AppKPI {
@@ -86,8 +108,8 @@ export function KPIProvider({ children }: { children: ReactNode }) {
     const { currentUser } = useAuth();
     const [kpis, setKPIs] = useState<AppKPI[]>([]);
     // Quality metrics & scores still use localStorage (no backend endpoint needed yet)
-    const [qualityMetrics, setQualityMetrics] = useState<QualityMetric[]>(() => loadLocal(METRICS_KEY, DEFAULT_METRICS));
-    const [qualityScores, setQualityScores]   = useState<AppQualityScore[]>(() => loadLocal(SCORES_KEY, []));
+    const [qualityMetrics, setQualityMetrics] = useState<QualityMetric[]>(() => loadMetricsInit());
+    const [qualityScores, setQualityScores]   = useState<AppQualityScore[]>(() => loadScoresInit());
 
     useEffect(() => {
         localStorage.setItem(METRICS_KEY, JSON.stringify(qualityMetrics));

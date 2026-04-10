@@ -1,8 +1,10 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { api } from "@/lib/api";
-import { useAuth, UserRole } from "./AuthContext";
+import { useAuth } from "./AuthContext";
+import { getEffectivePermissions } from "@/lib/permissions";
 
 export type TaskStatus = "Pending" | "In Progress" | "Completed" | "Approved";
+export type TaskKind = "daily" | "one_time" | "deadline_based";
 
 export interface TaskMessage {
     id: string;
@@ -32,6 +34,8 @@ export interface AppTask {
     kpiRelationId?: string;
     kpiRelationName?: string;
     type: "Individual" | "Group";
+    taskKind: TaskKind;
+    deadlineAt?: string | null;
     status: TaskStatus;
     deadline: string;
     timeSpent: string;
@@ -64,6 +68,8 @@ function mapTask(t: any): AppTask {
         kpiRelationId: t.kpiRelationId,
         kpiRelationName: t.kpiRelationName,
         type: t.type,
+        taskKind: t.taskKind || "one_time",
+        deadlineAt: t.deadlineAt ? (typeof t.deadlineAt === "string" ? t.deadlineAt : new Date(t.deadlineAt).toISOString()) : null,
         status: t.status,
         deadline: t.deadline,
         timeSpent: t.timeSpent,
@@ -75,7 +81,7 @@ function mapTask(t: any): AppTask {
 }
 
 export function TaskProvider({ children }: { children: ReactNode }) {
-    const { currentUser } = useAuth();
+    const { currentUser, companyRoles } = useAuth();
     const [tasks, setTasks] = useState<AppTask[]>([]);
 
     useEffect(() => {
@@ -87,7 +93,8 @@ export function TaskProvider({ children }: { children: ReactNode }) {
 
     const createTask = async (t: Omit<AppTask, "id" | "createdAt" | "messages" | "submission">) => {
         if (!currentUser) return { success: false, error: "Not logged in" };
-        if (currentUser.role === "employee") return { success: false, error: "Employees cannot create tasks" };
+        const perms = getEffectivePermissions(currentUser, companyRoles);
+        if (!perms.tasks_create) return { success: false, error: "You do not have permission to create tasks" };
         try {
             const { task } = await api.tasks.create({
                 ...t,
@@ -141,9 +148,9 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     };
 
     const deleteTask = async (taskId: string) => {
-        if (currentUser?.role !== "admin" && currentUser?.role !== "controller") {
-            return { success: false, error: "No permission to delete" };
-        }
+        if (!currentUser) return { success: false, error: "Not logged in" };
+        const perms = getEffectivePermissions(currentUser, companyRoles);
+        if (!perms.tasks_delete) return { success: false, error: "No permission to delete tasks" };
         try {
             await api.tasks.remove(taskId);
             setTasks(prev => prev.filter(t => t.id !== taskId));

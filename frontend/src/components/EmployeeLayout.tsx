@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useNotification } from "@/context/NotificationContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LayoutDashboard, ClipboardCheck, CalendarClock, Trophy, Settings, LogOut, Bell, X, CheckCheck, Menu } from "lucide-react";
+import { DelayedTaskNotificationBar } from "@/components/DelayedTaskNotificationBar";
 
 const navItems = [
     { label: "Dashboard", to: "/employee/dashboard", icon: LayoutDashboard },
@@ -56,10 +57,10 @@ export function EmployeeLayout() {
             <aside className={`fixed inset-y-0 left-0 z-30 w-52 bg-card border-r flex flex-col transition-transform duration-200 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:relative lg:translate-x-0`}>
                 <div className="flex items-center gap-2.5 px-4 py-4 border-b">
                     <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600">
-                        <span className="text-xs font-bold text-white">E</span>
+                        <span className="text-xs font-bold text-white">Z</span>
                     </div>
                     <div>
-                        <p className="text-sm font-bold text-foreground">AdScroll360</p>
+                        <p className="text-sm font-bold text-foreground">Zaptiz</p>
                         <p className="text-[10px] text-emerald-600 font-medium">Employee Portal</p>
                     </div>
                 </div>
@@ -164,6 +165,7 @@ export function EmployeeLayout() {
                         </div>
                     </div>
                 </header>
+                <DelayedTaskNotificationBar scope="self" />
                 <main className="flex-1 overflow-auto p-6 lg:p-8">
                     <Outlet />
                 </main>

@@ -11,7 +11,7 @@ async function request<T = unknown>(
   // Try to get companyId from localStorage session
   let companyId: string | null = null;
   try {
-    const saved = localStorage.getItem('adscroll360_session_v4');
+    const saved = localStorage.getItem('zaptiz_session_v1') || localStorage.getItem('adscroll360_session_v4');
     if (saved) {
       const user = JSON.parse(saved);
       companyId = user.companyId || null;
@@ -114,5 +114,12 @@ export const api = {
   notifications: {
     list:   (companyId: string)                     => request<{ notifications: any[] }>(`/api/notifications?companyId=${companyId}`),
     create: (data: Record<string, unknown>)         => request<{ notification: any }>('/api/notifications', { method: 'POST', body: JSON.stringify(data) }),
+  },
+
+  roles: {
+    list:   (companyId: string)                      => request<{ roles: any[] }>(`/api/roles?companyId=${companyId}`),
+    create: (data: Record<string, unknown>)         => request<{ role: any }>('/api/roles', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, unknown>) => request<{ role: any }>(`/api/roles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    remove: (id: string)                             => request(`/api/roles/${id}`, { method: 'DELETE' }),
   },
 };

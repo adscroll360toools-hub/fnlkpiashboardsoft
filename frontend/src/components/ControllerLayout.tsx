@@ -6,8 +6,9 @@ import { useNotification } from "@/context/NotificationContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
     LayoutDashboard, ClipboardCheck, CalendarClock,
-    BarChart3, Settings, LogOut, Bell, Target, MessageSquare, X, Menu,
+    BarChart3, Settings, LogOut, Bell, Target, MessageSquare, X, Menu, Tags,
 } from "lucide-react";
+import { DelayedTaskNotificationBar } from "@/components/DelayedTaskNotificationBar";
 
 const navItems = [
     { label: "Dashboard", to: "/controller/dashboard", icon: LayoutDashboard },
@@ -16,6 +17,7 @@ const navItems = [
     { label: "Reports", to: "/controller/reports", icon: BarChart3 },
     { label: "KPI", to: "/controller/kpi", icon: Target },
     { label: "Standups", to: "/controller/standups", icon: MessageSquare },
+    { label: "Roles", to: "/controller/roles", icon: Tags },
     { label: "Settings", to: "/controller/settings", icon: Settings },
 ];
 
@@ -60,10 +62,10 @@ export function ControllerLayout() {
                 {/* Brand */}
                 <div className="flex items-center gap-2.5 px-4 py-4 border-b">
                     <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-600">
-                        <span className="text-xs font-bold text-white">C</span>
+                        <span className="text-xs font-bold text-white">Z</span>
                     </div>
                     <div>
-                        <p className="text-sm font-bold text-foreground">AdScroll360</p>
+                        <p className="text-sm font-bold text-foreground">Zaptiz</p>
                         <p className="text-[10px] text-violet-600 font-medium">Controller Portal</p>
                     </div>
                 </div>
@@ -174,6 +176,7 @@ export function ControllerLayout() {
                         </div>
                     </div>
                 </header>
+                <DelayedTaskNotificationBar scope="company" />
                 <main className="flex-1 overflow-auto p-6 lg:p-8">
                     <Outlet />
                 </main>

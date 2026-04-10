@@ -12,6 +12,7 @@ import {
   LogOut,
   UserCog,
   UserCheck,
+  Tags,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -41,6 +42,7 @@ const mainNav = [
 
 const adminNav = [
   { title: "Users", url: "/admin/users", icon: UserCog },
+  { title: "Roles", url: "/admin/roles", icon: Tags },
   { title: "Attendance Control", url: "/admin/attendance-control", icon: UserCheck },
   { title: "KPI Targets", url: "/admin/kpi", icon: Target },
   { title: "Rewards", url: "/admin/rewards", icon: Gift },
@@ -68,10 +70,10 @@ export function AppSidebar() {
           {!collapsed ? (
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <span className="text-sm font-bold text-primary-foreground">A</span>
+                <span className="text-sm font-bold text-primary-foreground">Z</span>
               </div>
               <div>
-                <h2 className="text-sm font-bold tracking-tight text-foreground">AdScroll360</h2>
+                <h2 className="text-sm font-bold tracking-tight text-foreground">Zaptiz</h2>
                 <p className="text-[10px] text-muted-foreground">Performance System</p>
               </div>
             </div>

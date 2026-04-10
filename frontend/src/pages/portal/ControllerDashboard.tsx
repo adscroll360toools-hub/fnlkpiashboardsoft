@@ -9,6 +9,7 @@ import { LiveAttendanceWidget } from "@/components/LiveAttendanceWidget";
 import { LeaderboardWidget } from "@/components/LeaderboardWidget";
 import { KPIProgressBar } from "@/components/KPIProgressBar";
 import { SendNotificationDialog } from "@/components/SendNotificationDialog";
+import { TaskDashboard } from "@/components/TaskDashboard";
 
 export default function ControllerDashboard() {
     const { currentUser, users } = useAuth();
@@ -44,6 +45,8 @@ export default function ControllerDashboard() {
                 <StatCard title="Group KPI Score" value={`${Math.floor(avgGroupProgress)}%`} subtitle="Target progress" icon={Trophy} trend={{ value: "+3% vs last week", positive: true }} />
                 <StatCard title="Group Targets" value={groupKpis.length.toString()} subtitle="Active targets" icon={Target} />
             </motion.div>
+
+            <TaskDashboard scope="company" title="Task dashboard" />
 
             <div className="grid gap-6 lg:grid-cols-12">
                 {/* Team Status */}

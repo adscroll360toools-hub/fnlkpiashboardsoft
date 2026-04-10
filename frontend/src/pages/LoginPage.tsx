@@ -55,9 +55,9 @@ export default function LoginPage() {
         {/* Brand */}
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary shadow-lg">
-            <span className="text-lg font-bold text-primary-foreground">A</span>
+            <span className="text-lg font-bold text-primary-foreground">Z</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">AdScroll360</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Zaptiz</h1>
           <p className="mt-1 text-sm text-muted-foreground">Performance & KPI Management</p>
         </div>
 
@@ -69,7 +69,7 @@ export default function LoginPage() {
               <Input
                 id="login-email"
                 type="email"
-                placeholder="you@adscroll360.com"
+                placeholder="you@company.com"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(""); }}
                 className="h-11 rounded-lg border-0 bg-muted text-sm focus-visible:ring-2 focus-visible:ring-ring"
@@ -120,7 +120,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-xs text-muted-foreground mt-8">
-          AdScroll360 © {new Date().getFullYear()} · Internal Use Only
+          Zaptiz © {new Date().getFullYear()} · Internal Use Only
         </p>
       </motion.div>
     </div>

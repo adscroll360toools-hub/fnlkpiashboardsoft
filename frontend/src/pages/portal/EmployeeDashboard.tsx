@@ -6,19 +6,13 @@ import { useTask } from "@/context/TaskContext";
 import { useKPI, AppKPI } from "@/context/KPIContext";
 import { useAttendance } from "@/context/AttendanceContext";
 import { StatCard } from "@/components/StatCard";
-import { ClipboardCheck, CalendarClock, Trophy, Target, Clock, Edit2, X } from "lucide-react";
+import { ClipboardCheck, CalendarClock, Trophy, Target, Edit2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { KPIProgressBar } from "@/components/KPIProgressBar";
 import { LeaderboardWidget } from "@/components/LeaderboardWidget";
-
-const statusColors: Record<string, string> = {
-    Completed: "bg-green-100 text-green-700 dark:bg-green-900/20",
-    "In Progress": "bg-primary/15 text-primary",
-    Pending: "bg-muted text-muted-foreground",
-    Approved: "bg-accent/15 text-accent",
-};
+import { TaskDashboard } from "@/components/TaskDashboard";
 
 export default function EmployeeDashboard() {
     const { currentUser } = useAuth();
@@ -44,7 +38,6 @@ export default function EmployeeDashboard() {
     };
 
     const myTasks = tasks.filter(t => t.assigneeId === currentUser?.id);
-    const todayTasks = myTasks.filter(t => new Date(t.createdAt).toDateString() === new Date().toDateString());
     
     const myKpis = kpis.filter(k => k.type === "Individual" && k.assignedToId === currentUser?.id);
     const avgMyProgress = myKpis.length > 0 ? 
@@ -73,34 +66,9 @@ export default function EmployeeDashboard() {
             </motion.div>
 
             <div className="grid gap-6 lg:grid-cols-12">
-                {/* Today's tasks */}
                 <motion.div variants={fadeUp} className="lg:col-span-7">
                     <div className="rounded-2xl bg-card p-5 shadow-card h-full">
-                        <div className="mb-4 flex items-center justify-between">
-                            <h2 className="text-base font-semibold text-foreground">Assigned Tasks ({todayTasks.length})</h2>
-                        </div>
-                        <div className="space-y-1">
-                            {todayTasks.map((task) => (
-                                <div key={task.id} className="flex items-center justify-between rounded-xl px-3 py-3 hover:bg-muted transition-colors">
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate text-sm font-medium text-foreground">{task.title}</p>
-                                        <p className="text-xs text-muted-foreground">{task.category}</p>
-                                    </div>
-                                    <div className="flex items-center gap-3 ml-3">
-                                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                            <Clock className="h-3 w-3" />
-                                            <span className="font-tabular">{task.timeSpent || "—"}</span>
-                                        </div>
-                                        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${statusColors[task.status] || "bg-muted"}`}>
-                                            {task.status}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
-                            {todayTasks.length === 0 && (
-                                <div className="text-sm text-center text-muted-foreground py-10 border border-dashed rounded-lg">No tasks assigned today.</div>
-                            )}
-                        </div>
+                        <TaskDashboard scope="self" title="My task dashboard" />
                     </div>
                 </motion.div>
 

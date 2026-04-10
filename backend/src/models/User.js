@@ -21,6 +21,7 @@ const userSchema = new mongoose.Schema(
     position: { type: String, trim: true },
     score: { type: Number, default: 0 },
     companyId: { type: String, default: null },
+    companyRoleId: { type: String, default: null },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },

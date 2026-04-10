@@ -9,7 +9,7 @@ import Attendance from '../models/Attendance.js';
 const router = Router();
 
 // ── Hardcoded Super Admin credentials ─────────────────────────
-const SUPER_ADMIN_EMAIL    = 'admin@adscroll360.com';
+const SUPER_ADMIN_EMAILS    = ['admin@zaptiz.com', 'admin@adscroll360.com'];
 const SUPER_ADMIN_PASSWORD = 'mg6VMj54a5cfDn6p';
 
 /** POST /api/super-admin/login */
@@ -19,8 +19,9 @@ router.post('/login', async (req, res, next) => {
     if (!email || !password)
       return res.status(400).json({ error: 'email and password are required' });
 
+    const em = email.toLowerCase();
     if (
-      email.toLowerCase() !== SUPER_ADMIN_EMAIL ||
+      !SUPER_ADMIN_EMAILS.includes(em) ||
       password !== SUPER_ADMIN_PASSWORD
     ) {
       return res.status(401).json({ error: 'Invalid super admin credentials' });
@@ -30,7 +31,7 @@ router.post('/login', async (req, res, next) => {
       user: {
         id: 'super_admin',
         name: 'Super Admin',
-        email: SUPER_ADMIN_EMAIL,
+        email: em,
         role: 'super_admin',
       },
     });

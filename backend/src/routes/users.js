@@ -29,14 +29,17 @@ router.get('/:id', async (req, res, next) => {
 /** POST /api/users — create user */
 router.post('/', async (req, res, next) => {
   try {
-    const { name, email, password, role, department, position, companyId } = req.body;
+    const { name, email, password, role, department, position, companyId, companyRoleId } = req.body;
     if (!name || !email || !password || !companyId) {
       return res.status(400).json({ error: 'name, email, password and companyId are required' });
     }
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) return res.status(409).json({ error: 'Email already in use' });
 
-    const user = await User.create({ name, email, password, role, department, position, companyId });
+    const user = await User.create({
+      name, email, password, role, department, position, companyId,
+      companyRoleId: companyRoleId || null,
+    });
     res.status(201).json({ user });
   } catch (err) { next(err); }
 });
@@ -60,7 +63,7 @@ router.patch('/:id', async (req, res, next) => {
   try {
     const { companyId } = req.body;
     if (!companyId) return res.status(400).json({ error: 'companyId is required' });
-    const allowed = ['name', 'email', 'password', 'role', 'department', 'position', 'score'];
+    const allowed = ['name', 'email', 'password', 'role', 'department', 'position', 'score', 'companyRoleId'];
     const updates = {};
     allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
 

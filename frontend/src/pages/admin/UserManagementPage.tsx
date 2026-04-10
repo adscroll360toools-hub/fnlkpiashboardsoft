@@ -24,11 +24,11 @@ const ROLES_SELECTABLE: ("controller" | "employee")[] = ["controller", "employee
 
 type ModalMode = "add-controller" | "add-employee" | "change-password" | "edit" | null;
 
-const emptyUserForm = { name: "", email: "", password: "", confirmPassword: "", department: DEPARTMENTS[0], position: "", score: 80, role: "employee" as "controller" | "employee" };
+const emptyUserForm = { name: "", email: "", password: "", confirmPassword: "", department: DEPARTMENTS[0], position: "", score: 80, role: "employee" as "controller" | "employee", companyRoleId: "" };
 const emptyPwForm = { newPw: "", confirmPw: "" };
 
 export default function UserManagementPage() {
-    const { users, addUser, removeUser, updateUser, changePassword, forceResetPassword } = useAuth();
+    const { users, companyRoles, addUser, removeUser, updateUser, changePassword, forceResetPassword } = useAuth();
 
     const [modalMode, setModalMode] = useState<ModalMode>(null);
     const [editTarget, setEditTarget] = useState<AppUser | null>(null);
@@ -51,14 +51,14 @@ export default function UserManagementPage() {
 
     const openAdd = (role: "controller" | "employee") => {
         setModalMode(role === "controller" ? "add-controller" : "add-employee");
-        setUserForm({ ...emptyUserForm, role });
+        setUserForm({ ...emptyUserForm, role, companyRoleId: "" });
         setFormError("");
         setShowPw(false);
     };
 
     const openEdit = (user: AppUser) => {
         setEditTarget(user);
-        setUserForm({ name: user.name, email: user.email, password: "", confirmPassword: "", department: user.department ?? DEPARTMENTS[0], position: user.position ?? "", score: (user as any).score ?? 80, role: user.role as "controller" | "employee" });
+        setUserForm({ name: user.name, email: user.email, password: "", confirmPassword: "", department: user.department ?? DEPARTMENTS[0], position: user.position ?? "", score: (user as any).score ?? 80, role: user.role as "controller" | "employee", companyRoleId: user.companyRoleId ?? "" });
         setFormError("");
         setModalMode("edit");
         setMenuOpen(null);
@@ -82,7 +82,7 @@ export default function UserManagementPage() {
         if (userForm.password.length < 6) { setFormError("Password must be at least 6 characters."); return; }
         if (userForm.password !== userForm.confirmPassword) { setFormError("Passwords do not match."); return; }
 
-        const role: UserRole = modalMode === "add-controller" ? "controller" : "employee";
+        const role: UserRole = userForm.role === "controller" ? "controller" : "employee";
         const result = await addUser({
             name: userForm.name.trim(),
             email: userForm.email.trim(),
@@ -90,6 +90,7 @@ export default function UserManagementPage() {
             role,
             department: userForm.department,
             position: userForm.position.trim() || (role === "controller" ? "Controller" : "Employee"),
+            companyRoleId: userForm.companyRoleId || undefined,
         });
 
         if (result.success) {
@@ -111,6 +112,7 @@ export default function UserManagementPage() {
             department: userForm.department,
             position: userForm.position.trim(),
             role: userForm.role,
+            companyRoleId: userForm.companyRoleId || null,
         });
         toast.success("User updated!", { description: userForm.name });
         closeModal();
@@ -152,7 +154,7 @@ export default function UserManagementPage() {
                 <motion.div variants={fadeUp} className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight text-foreground">Users</h1>
-                        <p className="mt-1 text-sm text-muted-foreground">Manage all Controllers and Employees</p>
+                        <p className="mt-1 text-sm text-muted-foreground">Manage all Controllers and Employees. Assign portal roles and optional custom roles under Roles.</p>
                     </div>
                     <div className="flex gap-2 flex-wrap">
                         <Button variant="outline" className="h-10 gap-2 rounded-lg px-4 text-sm font-medium text-violet-600 border-violet-200 hover:bg-violet-50 dark:hover:bg-violet-900/20" onClick={() => openAdd("controller")}>
@@ -245,6 +247,37 @@ export default function UserManagementPage() {
                                 </div>
                                 {(modalMode === "add-controller" || modalMode === "add-employee" || modalMode === "edit") && (
                                     <form onSubmit={modalMode === "edit" ? handleEditUser : handleAddUser} className="px-6 py-5 space-y-4">
+                                        <div className="space-y-1.5">
+                                            <Label>Portal role</Label>
+                                            <select
+                                                value={userForm.role}
+                                                onChange={(e) => {
+                                                    const r = e.target.value as "controller" | "employee";
+                                                    setUserForm({ ...userForm, role: r, companyRoleId: "" });
+                                                }}
+                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                            >
+                                                <option value="employee">Employee</option>
+                                                <option value="controller">Controller</option>
+                                            </select>
+                                            <p className="text-[11px] text-muted-foreground">Controls which portal they use after sign-in.</p>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label>Company role (optional)</Label>
+                                            <select
+                                                value={userForm.companyRoleId}
+                                                onChange={(e) => setUserForm({ ...userForm, companyRoleId: e.target.value })}
+                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                            >
+                                                <option value="">— None —</option>
+                                                {companyRoles
+                                                    .filter((r) => r.portalBase === userForm.role)
+                                                    .map((r) => (
+                                                        <option key={r.id} value={r.id}>{r.name}</option>
+                                                    ))}
+                                            </select>
+                                            <p className="text-[11px] text-muted-foreground">Create custom roles under Admin → Roles.</p>
+                                        </div>
                                         <div className="space-y-1.5"><Label>Full Name</Label><Input value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} /></div>
                                         <div className="space-y-1.5"><Label>Email</Label><Input value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} /></div>
                                         {modalMode !== "edit" && (

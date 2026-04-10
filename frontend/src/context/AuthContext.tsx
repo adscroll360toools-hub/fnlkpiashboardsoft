@@ -1,7 +1,15 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { api } from "@/lib/api";
 
 export type UserRole = "super_admin" | "admin" | "controller" | "employee";
+
+export interface CompanyRole {
+    id: string;
+    name: string;
+    description?: string;
+    portalBase: "employee" | "controller";
+    permissions: Record<string, boolean>;
+}
 
 export interface AppUser {
     id: string;
@@ -13,11 +21,14 @@ export interface AppUser {
     position?: string;
     createdAt: string;
     companyId?: string;
+    companyRoleId?: string | null;
 }
 
 interface AuthContextType {
     currentUser: AppUser | null;
     users: AppUser[];
+    companyRoles: CompanyRole[];
+    refreshCompanyRoles: () => Promise<void>;
     login: (email: string, password: string) => Promise<{ success: boolean; error?: string; role?: UserRole }>;
     logout: () => void;
     addUser: (user: Omit<AppUser, "id" | "createdAt">) => Promise<{ success: boolean; error?: string }>;
@@ -29,7 +40,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const SESSION_KEY = "adscroll360_session_v4";
+const SESSION_KEY = "zaptiz_session_v1";
+const LEGACY_SESSION_KEY = "adscroll360_session_v4";
 
 function mapUser(u: any): AppUser {
     return {
@@ -42,12 +54,13 @@ function mapUser(u: any): AppUser {
         position: u.position,
         createdAt: u.created_at || u.createdAt || new Date().toISOString(),
         companyId: u.companyId,
+        companyRoleId: u.companyRoleId ?? null,
     };
 }
 
 function loadSession(): AppUser | null {
     try {
-        const saved = localStorage.getItem(SESSION_KEY);
+        const saved = localStorage.getItem(SESSION_KEY) || localStorage.getItem(LEGACY_SESSION_KEY);
         if (saved) return JSON.parse(saved);
     } catch { }
     return null;
@@ -55,7 +68,29 @@ function loadSession(): AppUser | null {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [users, setUsers] = useState<AppUser[]>([]);
+    const [companyRoles, setCompanyRoles] = useState<CompanyRole[]>([]);
     const [currentUser, setCurrentUser] = useState<AppUser | null>(loadSession);
+
+    const refreshCompanyRoles = useCallback(async () => {
+        if (!currentUser?.companyId || currentUser.role === "super_admin") {
+            setCompanyRoles([]);
+            return;
+        }
+        try {
+            const { roles } = await api.roles.list(currentUser.companyId);
+            setCompanyRoles(
+                roles.map((r: any) => ({
+                    id: r.id || r._id,
+                    name: r.name,
+                    description: r.description,
+                    portalBase: r.portalBase,
+                    permissions: (r.permissions || {}) as Record<string, boolean>,
+                }))
+            );
+        } catch (e) {
+            console.error("Failed to load company roles:", e);
+        }
+    }, [currentUser?.companyId, currentUser?.role]);
 
     // Fetch all users from the MongoDB backend (only for non-super-admin)
     useEffect(() => {
@@ -67,19 +102,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .catch(err => console.error("Failed to load users:", err));
     }, [currentUser?.role, currentUser?.companyId]);
 
+    useEffect(() => {
+        refreshCompanyRoles();
+    }, [currentUser?.id, currentUser?.companyId, currentUser?.role]);
+
     // Keep session in localStorage
     useEffect(() => {
         if (currentUser) {
             localStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
         } else {
             localStorage.removeItem(SESSION_KEY);
+            localStorage.removeItem(LEGACY_SESSION_KEY);
         }
     }, [currentUser]);
 
     const login = async (email: string, password: string) => {
         try {
             // First try super admin login
-            if (email.toLowerCase() === 'admin@adscroll360.com') {
+            if (email.toLowerCase() === 'admin@zaptiz.com' || email.toLowerCase() === 'admin@adscroll360.com') {
                 const { user } = await api.superAdmin.login(email, password);
                 const found = mapUser(user);
                 setCurrentUser(found);
@@ -151,7 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ currentUser, users, login, logout, addUser, updateUser, removeUser, changePassword, forceResetPassword }}>
+        <AuthContext.Provider value={{ currentUser, users, companyRoles, refreshCompanyRoles, login, logout, addUser, updateUser, removeUser, changePassword, forceResetPassword }}>
             {children}
         </AuthContext.Provider>
     );

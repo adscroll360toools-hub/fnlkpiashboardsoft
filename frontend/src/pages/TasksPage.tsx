@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { stagger, fadeUp } from "@/lib/animations";
-import { useTask, AppTask, TaskStatus } from "@/context/TaskContext";
+import { useTask, AppTask, TaskStatus, TaskKind } from "@/context/TaskContext";
 import { useAuth } from "@/context/AuthContext";
+import { getEffectivePermissions } from "@/lib/permissions";
+import { isTaskOverdue, endOfToday } from "@/lib/taskHelpers";
 import { useOutsideClick } from "@/hooks/useOutsideClick";
 import { toast } from "sonner";
 
@@ -119,8 +121,9 @@ const ProofSection = memo(({ task, currentUser }: { task: AppTask, currentUser: 
 });
 
 export default function TasksPage() {
-  const { currentUser, users } = useAuth();
-  const { tasks, createTask, updateTaskStatus, deleteTask } = useTask();
+  const { currentUser, users, companyRoles } = useAuth();
+  const { tasks, createTask, updateTaskStatus } = useTask();
+  const perms = getEffectivePermissions(currentUser, companyRoles);
   const assignees = users.filter((u) => u.role !== "admin");
 
   const [activeFilter, setActiveFilter] = useState<FilterTab>("All");
@@ -131,7 +134,16 @@ export default function TasksPage() {
 
   const selectedTask = useMemo(() => selectedTaskId ? tasks.find(t => t.id === selectedTaskId) : null, [selectedTaskId, tasks]);
 
-  const [form, setForm] = useState({ title: "", category: CATEGORIES[0], assignedToId: "", status: "Pending" as TaskStatus, time: "", notes: "" });
+  const [form, setForm] = useState({
+    title: "",
+    category: CATEGORIES[0],
+    assignedToId: "",
+    status: "Pending" as TaskStatus,
+    time: "",
+    notes: "",
+    taskKind: "one_time" as TaskKind,
+    deadlineLocal: "",
+  });
 
   useOutsideClick(statusMenuRef, () => setOpenStatusMenu(null));
 
@@ -139,13 +151,43 @@ export default function TasksPage() {
       .filter(t => currentUser?.role === "employee" ? t.assigneeId === currentUser.id : true);
 
   const handleOpen = () => {
-    setForm({ title: "", category: CATEGORIES[0], assignedToId: assignees[0]?.id || "", status: "Pending", time: "", notes: "" });
+    setForm({
+      title: "",
+      category: CATEGORIES[0],
+      assignedToId: assignees[0]?.id || "",
+      status: "Pending",
+      time: "",
+      notes: "",
+      taskKind: "one_time",
+      deadlineLocal: "",
+    });
     setShowModal(true);
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim()) return toast.error("Task title is required.");
+    let deadlineAt: string | null = null;
+    let deadline = "Flexible";
+    const kind = form.taskKind;
+
+    if (kind === "daily") {
+      const d = form.deadlineLocal ? new Date(form.deadlineLocal) : endOfToday();
+      deadlineAt = d.toISOString();
+      deadline = d.toLocaleString();
+    } else if (kind === "deadline_based") {
+      if (!form.deadlineLocal) return toast.error("Pick a deadline date and time.");
+      const d = new Date(form.deadlineLocal);
+      deadlineAt = d.toISOString();
+      deadline = d.toLocaleString();
+    } else {
+      if (form.deadlineLocal) {
+        const d = new Date(form.deadlineLocal);
+        deadlineAt = d.toISOString();
+        deadline = d.toLocaleString();
+      }
+    }
+
     const res = await createTask({
         title: form.title.trim(),
         category: form.category,
@@ -154,8 +196,10 @@ export default function TasksPage() {
         assignedById: currentUser!.id,
         assignedByName: currentUser!.name,
         type: "Individual",
+        taskKind: kind,
+        deadlineAt,
         status: form.status,
-        deadline: new Date(Date.now() + 7 * 86400000).toLocaleDateString(),
+        deadline,
         timeSpent: "0m",
         notes: form.notes
     });
@@ -176,7 +220,7 @@ export default function TasksPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Task Management</h1>
             <p className="mt-1 text-sm text-muted-foreground">Coordinate, track and discuss production tasks</p>
           </div>
-          {currentUser?.role !== "employee" && (
+          {perms.tasks_create && (
             <Button className="h-10 gap-2 rounded-lg" onClick={handleOpen}><Plus className="h-4 w-4" /> Create Task</Button>
           )}
         </motion.div>
@@ -203,7 +247,7 @@ export default function TasksPage() {
             <tbody>
               {filtered.map((task) => (
                 <motion.tr key={task.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    className="border-b last:border-0 transition-colors hover:bg-muted/50 group cursor-pointer"
+                    className={`border-b last:border-0 transition-colors hover:bg-muted/50 group cursor-pointer ${isTaskOverdue(task) ? "bg-rose-50/80 dark:bg-rose-950/20" : ""}`}
                     onClick={() => setSelectedTaskId(task.id)}>
                     <td className="px-5 py-3">
                         <p className="text-sm font-medium text-foreground">{task.title}</p>
@@ -251,6 +295,19 @@ export default function TasksPage() {
                 <div className="px-6 py-4 border-b flex justify-between items-center"><h2 className="font-bold">Create New Task</h2><button onClick={() => setShowModal(false)}><X className="h-5 w-5"/></button></div>
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div className="space-y-1.5 font-medium"><Label>Task Title</Label><Input value={form.title} onChange={e=>setForm({...form, title: e.target.value})} placeholder="e.g. Design YouTube Thumbnail" /></div>
+                    <div className="space-y-1.5"><Label>Task type</Label>
+                      <select value={form.taskKind} onChange={e=>setForm({...form, taskKind: e.target.value as TaskKind})} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+                        <option value="daily">Daily task</option>
+                        <option value="one_time">One-time task</option>
+                        <option value="deadline_based">Deadline-based task</option>
+                      </select>
+                    </div>
+                    {(form.taskKind === "deadline_based" || form.taskKind === "daily" || form.taskKind === "one_time") && (
+                      <div className="space-y-1.5">
+                        <Label>{form.taskKind === "daily" ? "Due by (defaults to end of today if empty)" : "Deadline (date & time)"}</Label>
+                        <Input type="datetime-local" value={form.deadlineLocal} onChange={e=>setForm({...form, deadlineLocal: e.target.value})} />
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5"><Label>Category</Label><select value={form.category} onChange={e=>setForm({...form, category: e.target.value})} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">{CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
                         <div className="space-y-1.5"><Label>Assign To</Label><select value={form.assignedToId} onChange={e=>setForm({...form, assignedToId: e.target.value})} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Select Employee...</option>{assignees.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
@@ -275,6 +332,7 @@ export default function TasksPage() {
                       </div>
                       <div className="space-y-4 text-sm font-medium">
                           <div><span className="text-muted-foreground mr-2">Status:</span> <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${statusConfig[selectedTask.status].color}`}>{selectedTask.status}</span></div>
+                          <div><span className="text-muted-foreground mr-2">Type:</span> {selectedTask.taskKind === "daily" ? "Daily" : selectedTask.taskKind === "deadline_based" ? "Deadline-based" : "One-time"}</div>
                           <div><span className="text-muted-foreground mr-2">Category:</span> {selectedTask.category}</div>
                           <div><span className="text-muted-foreground mr-2">Deadline:</span> {selectedTask.deadline}</div>
                           <div className="pt-4 border-t"><span className="block text-muted-foreground mb-1">Internal Notes:</span> <p className="text-xs italic text-muted-foreground">{selectedTask.notes || "No additional notes."}</p></div>

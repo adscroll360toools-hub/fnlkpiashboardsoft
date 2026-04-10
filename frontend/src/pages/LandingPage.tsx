@@ -51,7 +51,7 @@ const TESTIMONIALS = [
     name: "Sarah Mitchell",
     role: "COO, NovaTech Solutions",
     avatar: "SM",
-    text: "AdScroll360 WorkHub transformed how we manage our 200+ remote team. KPI visibility went from monthly reports to real-time dashboards. Game-changing.",
+    text: "Zaptiz WorkHub transformed how we manage our 200+ remote team. KPI visibility went from monthly reports to real-time dashboards. Game-changing.",
     rating: 5,
   },
   {
@@ -128,7 +128,7 @@ function NavBar({ onCTA }: { onCTA: () => void }) {
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
             <BarChart3 className="w-5 h-5 text-white" />
           </div>
-          <span className="text-white font-bold text-lg tracking-tight">AdScroll360 <span className="text-blue-400">WorkHub</span></span>
+          <span className="text-white font-bold text-lg tracking-tight">Zaptiz <span className="text-blue-400">WorkHub</span></span>
         </div>
 
         {/* Desktop Nav */}
@@ -257,7 +257,7 @@ export default function LandingPage() {
                   <div className="w-3 h-3 rounded-full bg-amber-500/70" />
                   <div className="w-3 h-3 rounded-full bg-emerald-500/70" />
                 </div>
-                <div className="flex-1 text-center text-xs text-slate-500 font-mono">app.adscroll360.com/dashboard</div>
+                <div className="flex-1 text-center text-xs text-slate-500 font-mono">app.zaptiz.com/dashboard</div>
               </div>
 
               {/* Dashboard preview */}
@@ -465,7 +465,7 @@ export default function LandingPage() {
                 Start Free Today
               </h2>
               <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
-                Join thousands of teams using AdScroll360 WorkHub to unlock peak performance. No credit card required.
+                Join thousands of teams using Zaptiz WorkHub to unlock peak performance. No credit card required.
               </p>
               <button
                 id="cta-start-free-btn"
@@ -489,7 +489,7 @@ export default function LandingPage() {
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
                   <BarChart3 className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-white font-bold">AdScroll360</span>
+                <span className="text-white font-bold">Zaptiz</span>
               </div>
               <p className="text-slate-500 text-sm leading-relaxed">Command center for high-performance teams worldwide.</p>
             </div>
@@ -513,7 +513,7 @@ export default function LandingPage() {
           </div>
 
           <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-slate-600 text-sm">© {new Date().getFullYear()} AdScroll360 WorkHub. All rights reserved.</p>
+            <p className="text-slate-600 text-sm">© {new Date().getFullYear()} Zaptiz WorkHub. All rights reserved.</p>
             <p className="text-slate-700 text-xs">Built for high-performance teams</p>
           </div>
         </div>

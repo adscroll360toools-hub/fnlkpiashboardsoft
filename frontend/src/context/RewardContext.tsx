@@ -28,21 +28,25 @@ interface RewardContextType {
 
 const RewardContext = createContext<RewardContextType | null>(null);
 
-const STORE_REWARDS = "adscroll360_rewards_v2";
-const STORE_NOTIFICATIONS = "adscroll360_reward_notifications_v2";
+const STORE_REWARDS = "zaptiz_rewards_v1";
+const STORE_NOTIFICATIONS = "zaptiz_reward_notifications_v1";
+const STORE_REWARDS_LEGACY = "adscroll360_rewards_v2";
+const STORE_NOTIFICATIONS_LEGACY = "adscroll360_reward_notifications_v2";
 
-function loadData<T>(key: string, defaultValue: T): T {
+function loadData<T>(key: string, legacyKey: string, defaultValue: T): T {
     try {
         const d = localStorage.getItem(key);
         if (d) return JSON.parse(d);
+        const o = localStorage.getItem(legacyKey);
+        if (o) return JSON.parse(o);
     } catch {}
     return defaultValue;
 }
 
 export function RewardProvider({ children }: { children: ReactNode }) {
     const { currentUser, users } = useAuth();
-    const [rewards, setRewards] = useState<AppReward[]>(() => loadData(STORE_REWARDS, []));
-    const [notifications, setNotifications] = useState<RewardNotification[]>(() => loadData(STORE_NOTIFICATIONS, []));
+    const [rewards, setRewards] = useState<AppReward[]>(() => loadData(STORE_REWARDS, STORE_REWARDS_LEGACY, []));
+    const [notifications, setNotifications] = useState<RewardNotification[]>(() => loadData(STORE_NOTIFICATIONS, STORE_NOTIFICATIONS_LEGACY, []));
 
     useEffect(() => {
         localStorage.setItem(STORE_REWARDS, JSON.stringify(rewards));

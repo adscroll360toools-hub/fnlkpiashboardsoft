@@ -1,5 +1,5 @@
 // ============================================================
-//  AdScroll360 WorkHub — Backend API Server (Express.js + MongoDB)
+//  Zaptiz — Backend API Server (Express.js + MongoDB)
 //  Entry point: src/index.js
 // ============================================================
 
@@ -17,6 +17,7 @@ import attendanceRouter from './routes/attendance.js';
 import kpisRouter from './routes/kpis.js';
 import superAdminRouter from './routes/superAdmin.js';
 import notificationsRouter from './routes/notifications.js';
+import rolesRouter from './routes/roles.js';
 
 // ── Connect to MongoDB ─────────────────────────────────────
 await connectDB();
@@ -58,6 +59,7 @@ app.use('/api/attendance',   attendanceRouter);
 app.use('/api/kpis',         kpisRouter);
 app.use('/api/super-admin',  superAdminRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/roles',           rolesRouter);
 
 // ── 404 Handler ────────────────────────────────────────────
 app.use((_req, res) => {
@@ -72,7 +74,7 @@ app.use((err, _req, res, _next) => {
 
 // ── Start ──────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`✅  AdScroll360 WorkHub API running on http://localhost:${PORT}`);
+  console.log(`✅  Zaptiz API running on http://localhost:${PORT}`);
 });
 
 export default app;
