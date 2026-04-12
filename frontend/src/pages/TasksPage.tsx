@@ -130,7 +130,7 @@ const ProofSection = memo(({ task, currentUser }: { task: AppTask, currentUser: 
 
 export default function TasksPage() {
   const { currentUser, users, companyRoles } = useAuth();
-  const { tasks, createTask, updateTaskStatus } = useTask();
+  const { tasks, createTask, updateTaskStatus, deleteTask, refreshTasks } = useTask();
   const [viewMode, setViewMode] = useState<"table" | "board">("table");
   const perms = getEffectivePermissions(currentUser, companyRoles);
   const assignees = users.filter((u) => u.role !== "admin");
@@ -147,6 +147,8 @@ export default function TasksPage() {
     title: "",
     category: CATEGORIES[0],
     assignedToId: "",
+    assignmentMode: "individual" as "individual" | "group",
+    groupAssigneeIds: [] as string[],
     status: "Pending" as TaskStatus,
     time: "",
     notes: "",
@@ -164,10 +166,13 @@ export default function TasksPage() {
   );
 
   const handleOpen = () => {
+    const first = assignees[0]?.id || "";
     setForm({
       title: "",
       category: CATEGORIES[0],
-      assignedToId: assignees[0]?.id || "",
+      assignedToId: first,
+      assignmentMode: "individual",
+      groupAssigneeIds: first ? [first] : [],
       status: "Pending",
       time: "",
       notes: "",
@@ -183,6 +188,9 @@ export default function TasksPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim()) return toast.error("Task title is required.");
+    if (form.assignmentMode === "group" && form.groupAssigneeIds.filter(Boolean).length === 0) {
+      return toast.error("Select at least one person for a group task.");
+    }
     let deadlineAt: string | null = null;
     let deadline = "Flexible";
     const kind = form.taskKind;
@@ -204,17 +212,30 @@ export default function TasksPage() {
       }
     }
 
-    const aid = form.assignedToId || (currentUser?.role === "employee" ? currentUser.id : "");
+    const isGroup = form.assignmentMode === "group";
+    const groupIds = isGroup ? form.groupAssigneeIds.filter(Boolean) : [];
+    const aid =
+      isGroup
+        ? groupIds[0] || (currentUser?.role === "employee" ? currentUser.id : "")
+        : form.assignedToId || (currentUser?.role === "employee" ? currentUser.id : "");
+    const assigneeIds = isGroup && groupIds.length ? groupIds : aid ? [aid] : [];
+    const namesForGroup = assigneeIds
+      .map((id) => users.find((u) => u.id === id)?.name)
+      .filter(Boolean) as string[];
+    const assigneeName =
+      isGroup && namesForGroup.length
+        ? namesForGroup.join(", ")
+        : users.find((u) => u.id === aid)?.name || (currentUser?.role === "employee" ? currentUser!.name : "Unassigned");
     const tags = form.tagsStr.split(",").map((s) => s.trim()).filter(Boolean);
     const res = await createTask({
         title: form.title.trim(),
         category: form.category,
         assigneeId: aid,
-        assigneeName: users.find(u => u.id === aid)?.name || (currentUser?.role === "employee" ? currentUser.name : "Unassigned"),
-        assigneeIds: aid ? [aid] : [],
+        assigneeName,
+        assigneeIds,
         assignedById: currentUser!.id,
         assignedByName: currentUser!.name,
-        type: "Individual",
+        type: isGroup ? "Group" : "Individual",
         taskKind: kind,
         deadlineAt,
         status: form.status,
@@ -226,8 +247,23 @@ export default function TasksPage() {
         dependsOnTaskId: form.dependsOnTaskId || null,
         recurring: { enabled: false, rule: "" },
     });
-    if (res.success) { setShowModal(false); toast.success("Task created!"); }
-    else toast.error(res.error);
+    if (res.success) {
+      setShowModal(false);
+      toast.success("Task created!");
+      await refreshTasks();
+    } else toast.error(res.error);
+  };
+
+  const handleDeleteTask = async (e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation();
+    if (!perms.tasks_delete) return;
+    if (!window.confirm("Delete this task? This cannot be undone.")) return;
+    const r = await deleteTask(taskId);
+    if (r.success) {
+      toast.success("Task deleted");
+      if (selectedTaskId === taskId) setSelectedTaskId(null);
+      await refreshTasks();
+    } else toast.error(r.error || "Could not delete task");
   };
 
   const handleStatusChange = async (taskId: string, s: TaskStatus) => {
@@ -331,7 +367,10 @@ export default function TasksPage() {
                 <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden md:table-cell">Priority</th>
                 <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Assignee</th>
                 <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Deadline</th>
-                <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground rounded-tr-2xl">Status</th>
+                <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Status</th>
+                {perms.tasks_delete ? (
+                  <th className="px-5 py-3 w-12 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground rounded-tr-2xl" />
+                ) : null}
               </tr>
             </thead>
             <tbody>
@@ -366,11 +405,23 @@ export default function TasksPage() {
                             )}
                         </div>
                     </td>
+                    {perms.tasks_delete ? (
+                      <td className="px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          title="Delete task"
+                          className="inline-flex rounded-lg p-2 text-muted-foreground opacity-0 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                          onClick={(e) => handleDeleteTask(e, task.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    ) : null}
                 </motion.tr>
               ))}
               {filtered.length === 0 && (
                 <tr className="border-none">
-                    <td colSpan={5} className="px-6 py-20 text-center text-muted-foreground italic text-sm">No tasks found in this category.</td>
+                    <td colSpan={perms.tasks_delete ? 6 : 5} className="px-6 py-20 text-center text-muted-foreground italic text-sm">No tasks found in this category.</td>
                 </tr>
               )}
             </tbody>
@@ -401,10 +452,77 @@ export default function TasksPage() {
                         <Input type="datetime-local" value={form.deadlineLocal} onChange={e=>setForm({...form, deadlineLocal: e.target.value})} />
                       </div>
                     )}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5"><Label>Category</Label><select value={form.category} onChange={e=>setForm({...form, category: e.target.value})} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">{CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
-                        <div className="space-y-1.5"><Label>Assign To</Label><select value={form.assignedToId} onChange={e=>setForm({...form, assignedToId: e.target.value})} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Select Employee...</option>{assignees.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
+                    <div className="space-y-1.5">
+                      <Label>Assignment</Label>
+                      <select
+                        value={form.assignmentMode}
+                        onChange={(e) => {
+                          const mode = e.target.value as "individual" | "group";
+                          const first = form.assignedToId || assignees[0]?.id || "";
+                          setForm({
+                            ...form,
+                            assignmentMode: mode,
+                            groupAssigneeIds: mode === "group" ? (form.groupAssigneeIds.length ? form.groupAssigneeIds : first ? [first] : []) : form.groupAssigneeIds,
+                          });
+                        }}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        <option value="individual">Individual (one owner)</option>
+                        <option value="group">Group task (shared)</option>
+                      </select>
                     </div>
+                    <div className={`grid gap-4 ${form.assignmentMode === "individual" ? "grid-cols-2" : "grid-cols-1"}`}>
+                        <div className="space-y-1.5"><Label>Category</Label><select value={form.category} onChange={e=>setForm({...form, category: e.target.value})} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">{CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
+                        {form.assignmentMode === "individual" ? (
+                          <div className="space-y-1.5">
+                            <Label>Assign to</Label>
+                            <select value={form.assignedToId} onChange={(e) => setForm({ ...form, assignedToId: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+                              <option value="">Select…</option>
+                              {assignees.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                  {a.name} ({a.role})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : null}
+                    </div>
+                    {form.assignmentMode === "group" ? (
+                      <div className="space-y-1.5">
+                        <Label>Team members</Label>
+                        <div className="max-h-36 space-y-2 overflow-y-auto rounded-md border border-input bg-background p-2 text-sm">
+                          {assignees.length === 0 ? (
+                            <p className="text-muted-foreground">No assignees available.</p>
+                          ) : (
+                            assignees.map((a) => {
+                              const checked = form.groupAssigneeIds.includes(a.id);
+                              return (
+                                <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 hover:bg-muted/60">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => {
+                                      setForm((prev) => {
+                                        const set = new Set(prev.groupAssigneeIds);
+                                        if (set.has(a.id)) set.delete(a.id);
+                                        else set.add(a.id);
+                                        return { ...prev, groupAssigneeIds: Array.from(set) };
+                                      });
+                                    }}
+                                  />
+                                  <span>
+                                    {a.name} <span className="text-muted-foreground">({a.role})</span>
+                                  </span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Pick everyone who should see this task. The first selected member is the primary assignee for reporting.
+                        </p>
+                      </div>
+                    ) : null}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label>Priority</Label>
@@ -447,6 +565,7 @@ export default function TasksPage() {
                       <div className="space-y-4 text-sm font-medium">
                           <div><span className="text-muted-foreground mr-2">Status:</span> <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${statusConfig[selectedTask.status].color}`}>{selectedTask.status}</span></div>
                           <div><span className="text-muted-foreground mr-2">Type:</span> {selectedTask.taskKind === "daily" ? "Daily" : selectedTask.taskKind === "deadline_based" ? "Deadline-based" : "One-time"}</div>
+                          <div><span className="text-muted-foreground mr-2">Assignment:</span> {selectedTask.type === "Group" ? "Group" : "Individual"}</div>
                           <div><span className="text-muted-foreground mr-2">Category:</span> {selectedTask.category}</div>
                           <div><span className="text-muted-foreground mr-2">Priority:</span> <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${priorityStyle[selectedTask.priority]}`}>{selectedTask.priority}</span></div>
                           {selectedTask.tags?.length ? (

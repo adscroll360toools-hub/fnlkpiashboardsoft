@@ -9,6 +9,7 @@ import { Target, Plus, Edit, X, Save, Users, Building, User, Trash2 } from "luci
 import { toast } from "sonner";
 import { useKPI, KPIType, QualityMetric } from "@/context/KPIContext";
 import { useAuth } from "@/context/AuthContext";
+import { getEffectivePermissions } from "@/lib/permissions";
 
 const DEPARTMENTS = ["Content", "Design", "Management", "Marketing", "Video", "Analytics"];
 
@@ -25,7 +26,8 @@ const emptyForm = {
 
 export default function KPITargetsPage() {
   const { kpis, qualityMetrics, createKPI, deleteKPI, updateKPIProgress, updateQualityMetrics } = useKPI();
-  const { users, currentUser } = useAuth();
+  const { users, currentUser, companyRoles } = useAuth();
+  const perms = getEffectivePermissions(currentUser, companyRoles);
   
   const [activeTab, setActiveTab] = useState<KPIType | "Scoring">("Company");
   const [showModal, setShowModal] = useState(false);
@@ -41,7 +43,8 @@ export default function KPITargetsPage() {
   const isAdmin = currentUser?.role === "admin";
   const isController = currentUser?.role === "controller";
   const canCreate = isAdmin || isController;
-  const employees = users.filter(u => u.role === "employee");
+  const canDeleteKpi = isAdmin || (isController && perms.kpi_manage);
+  const teamForKpi = users.filter(u => u.role === "employee" || u.role === "controller");
 
   const filteredKpis = useMemo(() => {
     if (activeTab === "Scoring") return [];
@@ -60,7 +63,7 @@ export default function KPITargetsPage() {
     if (form.type === "Individual" && !form.assignedToId) { setFormError("Employee assignment is required."); return; }
     if (form.type === "Group" && !form.groupId) { setFormError("Group/Department is required."); return; }
 
-    const assignedUser = employees.find(u => u.id === form.assignedToId);
+    const assignedUser = teamForKpi.find(u => u.id === form.assignedToId);
     
     const res = await createKPI({
       ...form,
@@ -194,9 +197,20 @@ export default function KPITargetsPage() {
                           <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Daily Range</p>
                           <p className="text-sm font-semibold text-foreground">{kpi.dailyMin} – {kpi.dailyMax}</p>
                         </div>
-                        {isAdmin && (
-                          <button onClick={async (e) => { e.stopPropagation(); await deleteKPI(kpi.id); toast.success("KPI Deleted"); }} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100">
-                             <X className="h-4 w-4" />
+                        {canDeleteKpi && (
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!window.confirm("Delete this KPI target?")) return;
+                              const r = await deleteKPI(kpi.id);
+                              if (r.success) toast.success("KPI deleted");
+                              else toast.error(r.error || "Delete failed");
+                            }}
+                            className="p-1.5 text-muted-foreground opacity-0 transition-colors hover:text-destructive group-hover:opacity-100"
+                            title="Delete KPI"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         )}
                       </div>
@@ -384,7 +398,11 @@ export default function KPITargetsPage() {
                       <select id="kpi-assign" value={form.assignedToId} onChange={(e) => setForm({...form, assignedToId: e.target.value})}
                         className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm">
                         <option value="">Select Employee...</option>
-                        {employees.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        {teamForKpi.map(u => (
+                          <option key={u.id} value={u.id}>
+                            {u.name} ({u.role})
+                          </option>
+                        ))}
                       </select>
                     </div>
                   )}

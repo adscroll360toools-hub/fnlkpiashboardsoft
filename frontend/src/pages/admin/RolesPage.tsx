@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Shield, Plus, Trash2 } from "lucide-react";
+import { Shield, Plus, Trash2, Pencil, X } from "lucide-react";
 import { stagger, fadeUp } from "@/lib/animations";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, type CompanyRole } from "@/context/AuthContext";
 import { getEffectivePermissions, canAccessRoleManagement } from "@/lib/permissions";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -32,24 +32,54 @@ export default function RolesPage() {
   const [permState, setPermState] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(PERM_KEYS.map((p) => [p.key, false]))
   );
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const togglePerm = (k: string, v: boolean) => setPermState((s) => ({ ...s, [k]: v }));
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const resetForm = () => {
+    setName("");
+    setPortalBase("employee");
+    setPermState(Object.fromEntries(PERM_KEYS.map((p) => [p.key, false])));
+    setEditingId(null);
+  };
+
+  const startEdit = (r: CompanyRole) => {
+    setEditingId(r.id);
+    setName(r.name);
+    setPortalBase(r.portalBase);
+    const next: Record<string, boolean> = Object.fromEntries(PERM_KEYS.map((p) => [p.key, false]));
+    for (const p of PERM_KEYS) {
+      if (r.permissions && typeof r.permissions[p.key] === "boolean") {
+        next[p.key] = r.permissions[p.key] as boolean;
+      }
+    }
+    setPermState(next);
+  };
+
+  const handleSaveRole = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser?.companyId || !name.trim()) return;
     try {
-      await api.roles.create({
-        companyId: currentUser.companyId,
-        name: name.trim(),
-        portalBase,
-        permissions: permState,
-      });
-      toast.success("Role created");
-      setName("");
+      if (editingId) {
+        await api.roles.update(editingId, {
+          companyId: currentUser.companyId,
+          name: name.trim(),
+          permissions: permState,
+        });
+        toast.success("Role updated");
+      } else {
+        await api.roles.create({
+          companyId: currentUser.companyId,
+          name: name.trim(),
+          portalBase,
+          permissions: permState,
+        });
+        toast.success("Role created");
+      }
+      resetForm();
       await refreshCompanyRoles();
     } catch (err: any) {
-      toast.error(err?.message || "Failed to create role");
+      toast.error(err?.message || "Failed to save role");
     }
   };
 
@@ -83,11 +113,18 @@ export default function RolesPage() {
 
       <motion.div variants={fadeUp} className="grid gap-8 lg:grid-cols-2">
         <div className="rounded-2xl border bg-card p-6 shadow-card">
-          <div className="mb-4 flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
-            <h2 className="text-base font-semibold">Create role</h2>
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              <h2 className="text-base font-semibold">{editingId ? "Edit role" : "Create role"}</h2>
+            </div>
+            {editingId ? (
+              <Button type="button" variant="ghost" size="sm" className="gap-1" onClick={resetForm}>
+                <X className="h-4 w-4" /> Cancel
+              </Button>
+            ) : null}
           </div>
-          <form onSubmit={handleCreate} className="space-y-4">
+          <form onSubmit={handleSaveRole} className="space-y-4">
             <div className="space-y-1.5">
               <Label>Role name</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Senior Controller" required />
@@ -96,13 +133,16 @@ export default function RolesPage() {
               <Label>Portal base</Label>
               <select
                 value={portalBase}
+                disabled={!!editingId}
                 onChange={(e) => setPortalBase(e.target.value as "controller" | "employee")}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-60"
               >
                 <option value="employee">Employee</option>
                 <option value="controller">Controller</option>
               </select>
-              <p className="text-[11px] text-muted-foreground">Must match the user type when assigning this role.</p>
+              <p className="text-[11px] text-muted-foreground">
+                {editingId ? "Portal base cannot be changed after the role is created." : "Must match the user type when assigning this role."}
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Permissions</Label>
@@ -119,8 +159,8 @@ export default function RolesPage() {
               </div>
             </div>
             <Button type="submit" className="w-full gap-2">
-              <Plus className="h-4 w-4" />
-              Save role
+              {editingId ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              {editingId ? "Update role" : "Save role"}
             </Button>
           </form>
         </div>
@@ -140,9 +180,14 @@ export default function RolesPage() {
                     <p className="font-medium text-foreground">{r.name}</p>
                     <p className="text-xs text-muted-foreground capitalize">{r.portalBase}</p>
                   </div>
-                  <Button type="button" variant="ghost" size="icon" className="shrink-0 text-destructive" onClick={() => handleDelete(r.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(r)} title="Edit role">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(r.id)} title="Delete role">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))
             )}

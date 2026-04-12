@@ -20,6 +20,9 @@ import notificationsRouter from './routes/notifications.js';
 import rolesRouter from './routes/roles.js';
 import standupsRouter from './routes/standups.js';
 import notesRouter from './routes/notes.js';
+import skillsRouter from './routes/skills.js';
+import rewardsRouter from './routes/rewards.js';
+import tenantCompanyRouter from './routes/tenantCompany.js';
 
 // ── Connect to MongoDB ─────────────────────────────────────
 await connectDB();
@@ -64,6 +67,9 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/roles',           rolesRouter);
 app.use('/api/standups',       standupsRouter);
 app.use('/api/notes',          notesRouter);
+app.use('/api/skills',         skillsRouter);
+app.use('/api/rewards',       rewardsRouter);
+app.use('/api/tenant-company', tenantCompanyRouter);
 
 // ── 404 Handler ────────────────────────────────────────────
 app.use((_req, res) => {

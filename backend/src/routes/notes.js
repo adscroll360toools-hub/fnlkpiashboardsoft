@@ -3,8 +3,13 @@ import CompanyNote from '../models/CompanyNote.js';
 
 const router = Router();
 
-function canReadNote(note, viewerId, viewerRole) {
-  if (viewerRole === 'admin' || viewerRole === 'controller') return true;
+/**
+ * Private: only the author (and explicit shareUserIds) can read.
+ * Public (shareEveryone): anyone in the company with access to /api/notes for that companyId.
+ * No role bypass — admins/controllers do not see other users' private notes.
+ */
+function canReadNote(note, viewerId) {
+  if (!viewerId) return false;
   if (note.userId === viewerId) return true;
   if (note.shareEveryone) return true;
   if (Array.isArray(note.shareUserIds) && note.shareUserIds.includes(viewerId)) return true;
@@ -14,7 +19,7 @@ function canReadNote(note, viewerId, viewerRole) {
 /** GET /api/notes?companyId=&viewerId=&viewerRole=&folder=&q= */
 router.get('/', async (req, res, next) => {
   try {
-    const { companyId, viewerId, viewerRole, folder, q } = req.query;
+    const { companyId, viewerId, folder, q } = req.query;
     if (!companyId) return res.status(400).json({ error: 'companyId is required' });
 
     const filter = { companyId };
@@ -27,8 +32,8 @@ router.get('/', async (req, res, next) => {
       notes = notes.filter((n) => rx.test(n.title) || rx.test(n.body || ''));
     }
 
-    if (viewerId && viewerRole) {
-      notes = notes.filter((n) => canReadNote(n, viewerId, viewerRole));
+    if (viewerId) {
+      notes = notes.filter((n) => canReadNote(n, String(viewerId)));
     }
 
     res.json({ notes });

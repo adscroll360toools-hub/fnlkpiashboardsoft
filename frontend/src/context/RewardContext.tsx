@@ -1,116 +1,120 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { useAuth, UserRole } from "./AuthContext";
+import { api } from "@/lib/api";
 
 export interface AppReward {
-    id: string;
-    title: string;
-    description: string;
-    imageUrl?: string;
-    eligibleRole?: UserRole | "All";
-    eligibleEmployeeId?: string; // If specific employee
-    createdAt: string;
-}
-
-export interface RewardNotification {
-    rewardId: string;
-    userId: string;
-    viewed: boolean;
+  id: string;
+  title: string;
+  description: string;
+  imageUrl?: string;
+  eligibleRole?: UserRole | "All";
+  eligibleEmployeeId?: string;
+  createdAt: string;
 }
 
 interface RewardContextType {
-    rewards: AppReward[];
-    notifications: RewardNotification[];
-    createReward: (reward: Omit<AppReward, "id" | "createdAt">) => { success: boolean; error?: string };
-    deleteReward: (rewardId: string) => { success: boolean; error?: string };
-    markNotificationViewed: (rewardId: string) => void;
-    getPendingNotifications: () => AppReward[];
+  rewards: AppReward[];
+  refreshRewards: () => Promise<void>;
+  createReward: (reward: Omit<AppReward, "id" | "createdAt">) => Promise<{ success: boolean; error?: string }>;
+  deleteReward: (rewardId: string) => Promise<{ success: boolean; error?: string }>;
+  /** Mark reward as seen (server + stops home popup). */
+  acknowledgeReward: (rewardId: string) => Promise<void>;
 }
 
 const RewardContext = createContext<RewardContextType | null>(null);
 
-const STORE_REWARDS = "zaptiz_rewards_v1";
-const STORE_NOTIFICATIONS = "zaptiz_reward_notifications_v1";
-const STORE_REWARDS_LEGACY = "adscroll360_rewards_v2";
-const STORE_NOTIFICATIONS_LEGACY = "adscroll360_reward_notifications_v2";
-
-function loadData<T>(key: string, legacyKey: string, defaultValue: T): T {
-    try {
-        const d = localStorage.getItem(key);
-        if (d) return JSON.parse(d);
-        const o = localStorage.getItem(legacyKey);
-        if (o) return JSON.parse(o);
-    } catch {}
-    return defaultValue;
+function mapReward(r: any): AppReward {
+  return {
+    id: r.id || r._id,
+    title: r.title,
+    description: r.description || "",
+    imageUrl: r.imageUrl,
+    eligibleRole: r.eligibleRole || undefined,
+    eligibleEmployeeId: r.eligibleEmployeeId || undefined,
+    createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+  };
 }
 
 export function RewardProvider({ children }: { children: ReactNode }) {
-    const { currentUser, users } = useAuth();
-    const [rewards, setRewards] = useState<AppReward[]>(() => loadData(STORE_REWARDS, STORE_REWARDS_LEGACY, []));
-    const [notifications, setNotifications] = useState<RewardNotification[]>(() => loadData(STORE_NOTIFICATIONS, STORE_NOTIFICATIONS_LEGACY, []));
+  const { currentUser } = useAuth();
+  const [rewards, setRewards] = useState<AppReward[]>([]);
 
-    useEffect(() => {
-        localStorage.setItem(STORE_REWARDS, JSON.stringify(rewards));
-    }, [rewards]);
+  const refreshRewards = useCallback(async () => {
+    if (!currentUser?.companyId) {
+      setRewards([]);
+      return;
+    }
+    try {
+      const { rewards: raw } = await api.rewards.list(currentUser.companyId);
+      setRewards((raw || []).map(mapReward));
+    } catch (e) {
+      console.error("Failed to load rewards:", e);
+      setRewards([]);
+    }
+  }, [currentUser?.companyId]);
 
-    useEffect(() => {
-        localStorage.setItem(STORE_NOTIFICATIONS, JSON.stringify(notifications));
-    }, [notifications]);
+  useEffect(() => {
+    refreshRewards();
+  }, [refreshRewards]);
 
-    const createReward = (r: Omit<AppReward, "id" | "createdAt">) => {
-        if (!currentUser) return { success: false, error: "Not logged in" };
-        if (currentUser.role !== "admin") return { success: false, error: "Only admins can create rewards" };
-
-        const newReward: AppReward = {
-            ...r,
-            id: crypto.randomUUID(),
-            createdAt: new Date().toISOString()
-        };
-
-        setRewards(prev => [newReward, ...prev]);
-
-        // Generate notifications for eligible users
-        const newNotifs: RewardNotification[] = [];
-        for (const user of users) {
-             if (r.eligibleEmployeeId && r.eligibleEmployeeId === user.id) {
-                 newNotifs.push({ rewardId: newReward.id, userId: user.id, viewed: false });
-             } else if (r.eligibleRole && (r.eligibleRole === "All" || r.eligibleRole === user.role)) {
-                 newNotifs.push({ rewardId: newReward.id, userId: user.id, viewed: false });
-             }
-        }
-        setNotifications(prev => [...prev, ...newNotifs]);
-
+  const createReward = useCallback(
+    async (r: Omit<AppReward, "id" | "createdAt">) => {
+      if (!currentUser?.companyId) return { success: false, error: "Not logged in" };
+      if (currentUser.role !== "admin") return { success: false, error: "Only company admins can create rewards" };
+      try {
+        await api.rewards.create({
+          ...r,
+          companyId: currentUser.companyId,
+          createdById: currentUser.id,
+          createdByName: currentUser.name,
+          eligibleRole: r.eligibleRole === "All" ? null : r.eligibleRole,
+          eligibleEmployeeId: r.eligibleEmployeeId || null,
+        });
+        await refreshRewards();
         return { success: true };
-    };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    },
+    [currentUser, refreshRewards]
+  );
 
-    const deleteReward = (rewardId: string) => {
-        if (currentUser?.role !== "admin") return { success: false, error: "Not authorized" };
-        setRewards(prev => prev.filter(r => r.id !== rewardId));
-        setNotifications(prev => prev.filter(n => n.rewardId !== rewardId));
+  const deleteReward = useCallback(
+    async (rewardId: string) => {
+      if (currentUser?.role !== "admin") return { success: false, error: "Not authorized" };
+      if (!currentUser.companyId) return { success: false, error: "No company" };
+      try {
+        await api.rewards.remove(rewardId);
+        await refreshRewards();
         return { success: true };
-    };
+      } catch (err: any) {
+        return { success: false, error: err.message };
+      }
+    },
+    [currentUser, refreshRewards]
+  );
 
-    const markNotificationViewed = (rewardId: string) => {
-        if (!currentUser) return;
-        setNotifications(prev => prev.map(n => 
-            (n.rewardId === rewardId && n.userId === currentUser.id) ? { ...n, viewed: true } : n
-        ));
-    };
+  const acknowledgeReward = useCallback(
+    async (rewardId: string) => {
+      if (!currentUser?.companyId) return;
+      try {
+        await api.rewards.ack(rewardId, { companyId: currentUser.companyId, userId: currentUser.id });
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [currentUser?.companyId, currentUser?.id]
+  );
 
-    const getPendingNotifications = () => {
-        if (!currentUser) return [];
-        const pending = notifications.filter(n => n.userId === currentUser.id && !n.viewed);
-        return pending.map(n => rewards.find(r => r.id === n.rewardId)).filter(Boolean) as AppReward[];
-    };
-
-    return (
-        <RewardContext.Provider value={{ rewards, notifications, createReward, deleteReward, markNotificationViewed, getPendingNotifications }}>
-            {children}
-        </RewardContext.Provider>
-    );
+  return (
+    <RewardContext.Provider value={{ rewards, refreshRewards, createReward, deleteReward, acknowledgeReward }}>
+      {children}
+    </RewardContext.Provider>
+  );
 }
 
 export function useReward() {
-    const ctx = useContext(RewardContext);
-    if (!ctx) throw new Error("useReward must be used within RewardProvider");
-    return ctx;
+  const ctx = useContext(RewardContext);
+  if (!ctx) throw new Error("useReward must be used within RewardProvider");
+  return ctx;
 }

@@ -16,10 +16,23 @@ const rewardTypes = [
   { icon: Gift, label: "Gift", color: "bg-destructive/10 text-destructive" },
 ];
 
+function rewardTargetLabel(
+  reward: { eligibleEmployeeId?: string; eligibleRole?: string },
+  userList: { id: string; name: string; role: string }[]
+): string {
+  if (reward.eligibleEmployeeId) {
+    const u = userList.find((x) => x.id === reward.eligibleEmployeeId);
+    return u ? `${u.name} (${u.role})` : "Specific user";
+  }
+  if (reward.eligibleRole === "controller") return "All controllers";
+  if (reward.eligibleRole === "employee") return "All employees";
+  return "All team";
+}
+
 export default function RewardsPage() {
   const { rewards, createReward, deleteReward } = useReward();
   const { users } = useAuth();
-  const employees = users.filter(u => u.role !== "admin");
+  const teamForRewards = users.filter((u) => u.role === "employee" || u.role === "controller");
 
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
@@ -35,30 +48,30 @@ export default function RewardsPage() {
     setShowModal(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim() || !form.description.trim()) { 
-        return toast.error("Reward Title and Description are required."); 
+    if (!form.title.trim() || !form.description.trim()) {
+      return toast.error("Reward Title and Description are required.");
     }
-    const res = createReward({
-        title: form.title,
-        description: form.description,
-        imageUrl: form.imageUrl,
-        eligibleRole: form.eligibleRole === "All" ? undefined : form.eligibleRole,
-        eligibleEmployeeId: form.eligibleEmployeeId || undefined
+    const res = await createReward({
+      title: form.title,
+      description: form.description,
+      imageUrl: form.imageUrl,
+      eligibleRole: form.eligibleRole === "All" ? undefined : form.eligibleRole,
+      eligibleEmployeeId: form.eligibleEmployeeId || undefined,
     });
 
     if (res.success) {
-        toast.success("Reward added and sent to designated users!");
-        setShowModal(false);
+      toast.success("Reward added and sent to designated users!");
+      setShowModal(false);
     } else {
-        toast.error(res.error);
+      toast.error(res.error);
     }
   };
 
-  const handleRemove = (id: string, title: string) => {
-    const res = deleteReward(id);
-    if(res.success) toast.success("Reward removed", { description: title });
+  const handleRemove = async (id: string, title: string) => {
+    const res = await deleteReward(id);
+    if (res.success) toast.success("Reward removed", { description: title });
     else toast.error(res.error);
   };
 
@@ -118,12 +131,7 @@ export default function RewardsPage() {
                         <p className="text-sm font-medium text-foreground">{reward.title}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground truncate max-w-xs">{reward.description}</p>
                       </td>
-                      <td className="px-5 py-3 text-sm text-muted-foreground">
-                        {reward.eligibleEmployeeId 
-                            ? users.find(u => u.id === reward.eligibleEmployeeId)?.name 
-                            : reward.eligibleRole ? `${reward.eligibleRole}s` : "All Users"
-                        }
-                      </td>
+                      <td className="px-5 py-3 text-sm text-muted-foreground">{rewardTargetLabel(reward, users)}</td>
                       <td className="px-5 py-3 font-tabular text-sm text-muted-foreground">{new Date(reward.createdAt).toLocaleDateString()}</td>
                       <td className="px-5 py-3 text-right">
                           <button onClick={() => handleRemove(reward.id, reward.title)}
@@ -180,7 +188,11 @@ export default function RewardsPage() {
                       <select value={form.eligibleEmployeeId} onChange={(e) => setForm({ ...form, eligibleEmployeeId: e.target.value })}
                         className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm mt-1">
                         <option value="">Any (Use Role)</option>
-                        {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                        {teamForRewards.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {e.name} ({e.role})
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>

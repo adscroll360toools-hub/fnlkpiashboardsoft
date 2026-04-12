@@ -11,9 +11,18 @@ import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { useAttendance } from "@/context/AttendanceContext";
+import { api } from "@/lib/api";
+
+const defaultAttendanceSettings = {
+  workStart: "09:00",
+  workEnd: "18:00",
+  lateAfterMinutes: 15,
+  absentIfNoCheckInBy: "10:30",
+};
 
 export default function SettingsPage() {
   const { currentUser, users, updateUser, changePassword } = useAuth();
+  const [attendanceSettings, setAttendanceSettings] = useState(defaultAttendanceSettings);
   const { records } = useAttendance();
   const [notifications, setNotifications] = useState(true);
   const [dailyReminder, setDailyReminder] = useState(true);
@@ -35,6 +44,26 @@ export default function SettingsPage() {
     }
   }, [currentUser]);
 
+  useEffect(() => {
+    if (currentUser?.role !== "admin" || !currentUser.companyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { company } = await api.tenantCompany.get(currentUser.companyId!);
+        if (cancelled || !company) return;
+        const a = company.attendanceSettings;
+        if (a && typeof a === "object") {
+          setAttendanceSettings({ ...defaultAttendanceSettings, ...a });
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.role, currentUser?.companyId]);
+
   const [hours, setHours] = useState({
     start: "09:00 AM",
     end: "06:00 PM",
@@ -51,6 +80,16 @@ export default function SettingsPage() {
     if (!currentUser) return;
     await updateUser(currentUser.id, profile);
     toast.success("Settings saved!", { description: "Your profile and preferences have been updated." });
+  };
+
+  const handleSaveAttendanceRules = async () => {
+    if (!currentUser?.companyId || currentUser.role !== "admin") return;
+    try {
+      await api.tenantCompany.patch(currentUser.companyId, { attendanceSettings });
+      toast.success("Attendance rules saved", { description: "Used for dashboards and future check-in logic." });
+    } catch (e: any) {
+      toast.error(e?.message || "Could not save attendance rules");
+    }
   };
 
   const handleNotifToggle = (key: string, val: boolean) => {
@@ -185,6 +224,62 @@ export default function SettingsPage() {
               <Link to="/admin/attendance-control">
                 Open attendance control <ChevronRight className="h-4 w-4" />
               </Link>
+            </Button>
+          </motion.div>
+        )}
+
+        {currentUser?.role === "admin" && currentUser.companyId && (
+          <motion.div variants={fadeUp} className="rounded-2xl bg-card p-6 shadow-card border border-border">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="h-4 w-4 text-primary" />
+              <h2 className="text-base font-semibold text-foreground">Company attendance rules</h2>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Define expected work window and cut-offs. These values are stored on the company record for reporting and upcoming attendance automation.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Workday start</Label>
+                <Input
+                  type="time"
+                  value={attendanceSettings.workStart}
+                  onChange={(e) => setAttendanceSettings((s) => ({ ...s, workStart: e.target.value }))}
+                  className="h-11 rounded-lg border-0 bg-muted text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Workday end</Label>
+                <Input
+                  type="time"
+                  value={attendanceSettings.workEnd}
+                  onChange={(e) => setAttendanceSettings((s) => ({ ...s, workEnd: e.target.value }))}
+                  className="h-11 rounded-lg border-0 bg-muted text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Late after (minutes past start)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={attendanceSettings.lateAfterMinutes}
+                  onChange={(e) =>
+                    setAttendanceSettings((s) => ({ ...s, lateAfterMinutes: Math.max(0, Number(e.target.value) || 0) }))
+                  }
+                  className="h-11 rounded-lg border-0 bg-muted text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Mark absent if no check-in by</Label>
+                <Input
+                  type="time"
+                  value={attendanceSettings.absentIfNoCheckInBy}
+                  onChange={(e) => setAttendanceSettings((s) => ({ ...s, absentIfNoCheckInBy: e.target.value }))}
+                  className="h-11 rounded-lg border-0 bg-muted text-sm"
+                />
+              </div>
+            </div>
+            <Button type="button" className="mt-4 h-10 gap-2" onClick={handleSaveAttendanceRules}>
+              <Save className="h-4 w-4" /> Save attendance rules
             </Button>
           </motion.div>
         )}

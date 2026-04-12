@@ -19,6 +19,15 @@ const companySchema = new mongoose.Schema(
     industry: { type: String, trim: true },
     website: { type: String, trim: true },
     employeeLimit: { type: Number, default: 50 },
+    attendanceSettings: {
+      type: mongoose.Schema.Types.Mixed,
+      default: () => ({
+        workStart: '09:00',
+        workEnd: '18:00',
+        lateAfterMinutes: 15,
+        absentIfNoCheckInBy: '10:30',
+      }),
+    },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },

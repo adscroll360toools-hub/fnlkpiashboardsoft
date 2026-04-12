@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "./AuthContext";
+import { getEffectivePermissions } from "@/lib/permissions";
 
 export type KPIType = "Company" | "Group" | "Individual";
 
@@ -105,7 +106,7 @@ function mapKPI(k: any): AppKPI {
 }
 
 export function KPIProvider({ children }: { children: ReactNode }) {
-    const { currentUser } = useAuth();
+    const { currentUser, companyRoles } = useAuth();
     const [kpis, setKPIs] = useState<AppKPI[]>([]);
     // Quality metrics & scores still use localStorage (no backend endpoint needed yet)
     const [qualityMetrics, setQualityMetrics] = useState<QualityMetric[]>(() => loadMetricsInit());
@@ -148,6 +149,11 @@ export function KPIProvider({ children }: { children: ReactNode }) {
     };
 
     const deleteKPI = async (kpiId: string) => {
+        if (!currentUser) return { success: false, error: "Not logged in" };
+        const perms = getEffectivePermissions(currentUser, companyRoles);
+        if (currentUser.role !== "admin" && !perms.kpi_manage) {
+            return { success: false, error: "You do not have permission to delete KPIs" };
+        }
         try {
             await api.kpis.remove(kpiId);
             setKPIs(prev => prev.filter(k => k.id !== kpiId));

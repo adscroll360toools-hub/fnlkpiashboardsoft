@@ -149,6 +149,27 @@ export const api = {
     list:   (params: Record<string, string>)        => request<{ notes: any[] }>(`/api/notes?${new URLSearchParams(params).toString()}`),
     create: (data: Record<string, unknown>)         => request<{ note: any }>('/api/notes', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, unknown>) => request<{ note: any }>(`/api/notes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    remove: (id: string, userId: string)           => request(`/api/notes/${id}?userId=${encodeURIComponent(userId)}`, { method: 'DELETE' }),
+    remove: (id: string, params: { companyId: string; userId: string }) =>
+      request(`/api/notes/${id}?${new URLSearchParams(params).toString()}`, { method: 'DELETE' }),
+  },
+
+  skills: {
+    list:   (companyId: string)                     => request<{ skills: any[] }>(`/api/skills?companyId=${companyId}`),
+    create: (data: Record<string, unknown>)       => request<{ skill: any }>('/api/skills', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, unknown>) => request<{ skill: any }>(`/api/skills/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    remove: (id: string)                           => request(`/api/skills/${id}`, { method: 'DELETE' }),
+  },
+
+  rewards: {
+    list:    (companyId: string)                    => request<{ rewards: any[] }>(`/api/rewards?companyId=${companyId}`),
+    pending: (params: Record<string, string>)      => request<{ rewards: any[] }>(`/api/rewards/pending?${new URLSearchParams(params).toString()}`),
+    create:  (data: Record<string, unknown>)      => request<{ reward: any }>('/api/rewards', { method: 'POST', body: JSON.stringify(data) }),
+    ack:     (rewardId: string, data: Record<string, unknown>) => request(`/api/rewards/${rewardId}/ack`, { method: 'POST', body: JSON.stringify(data) }),
+    remove:  (id: string)                         => request(`/api/rewards/${id}`, { method: 'DELETE' }),
+  },
+
+  tenantCompany: {
+    get:   (companyId: string)                      => request<{ company: any }>(`/api/tenant-company?companyId=${companyId}`),
+    patch: (companyId: string, data: Record<string, unknown>) => request<{ company: any }>(`/api/tenant-company/${companyId}`, { method: 'PATCH', body: JSON.stringify(data) }),
   },
 };

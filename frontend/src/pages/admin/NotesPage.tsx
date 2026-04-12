@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Search, Pin, Plus, FolderOpen, X, Loader2, Share2 } from "lucide-react";
+import { Search, Pin, Plus, FolderOpen, X, Loader2, Globe, Lock } from "lucide-react";
 import { stagger, fadeUp } from "@/lib/animations";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
@@ -43,6 +43,8 @@ export default function NotesPage() {
   const [allNotes, setAllNotes] = useState<NoteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [folder, setFolder] = useState<string>("All");
+  /** All notes you can see · only yours · only company-visible (public) notes */
+  const [listScope, setListScope] = useState<"all" | "mine" | "company">("all");
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [readOnly, setReadOnly] = useState<NoteRow | null>(null);
@@ -87,8 +89,10 @@ export default function NotesPage() {
   const notes = useMemo(() => {
     let rows = folder === "All" ? allNotes : allNotes.filter((n) => n.folder === folder);
     rows = [...rows].sort((a, b) => Number(b.pinned) - Number(a.pinned));
+    if (listScope === "mine" && currentUser) rows = rows.filter((n) => n.userId === currentUser.id);
+    if (listScope === "company") rows = rows.filter((n) => n.shareEveryone);
     return rows;
-  }, [allNotes, folder]);
+  }, [allNotes, folder, listScope, currentUser]);
 
   const folders = useMemo(() => {
     const s = new Set<string>(["General"]);
@@ -174,7 +178,7 @@ export default function NotesPage() {
     if (n.userId !== currentUser?.id) return;
     if (!window.confirm("Delete this note?")) return;
     try {
-      await api.notes.remove(n.id, currentUser.id);
+      await api.notes.remove(n.id, { companyId, userId: currentUser.id });
       toast.success("Note deleted");
       await load();
     } catch (e: any) {
@@ -193,7 +197,9 @@ export default function NotesPage() {
       <motion.div variants={fadeUp} className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Notes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Folders, tags, pins, and team sharing (Notebook-style)</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Notes are stored for your company. Public notes can be read by anyone in the company; private notes can be read only by you.
+          </p>
         </div>
         <Button className="h-10 gap-2" onClick={openNew}>
           <Plus className="h-4 w-4" /> New note
@@ -214,6 +220,26 @@ export default function NotesPage() {
           {folders.map((f) => (
             <Button key={f} type="button" size="sm" variant={folder === f ? "default" : "outline"} className="h-9" onClick={() => setFolder(f)}>
               {f === "All" ? "All folders" : f}
+            </Button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          {(
+            [
+              { id: "all" as const, label: "All visible" },
+              { id: "mine" as const, label: "My notes" },
+              { id: "company" as const, label: "Company (public)" },
+            ]
+          ).map((t) => (
+            <Button
+              key={t.id}
+              type="button"
+              size="sm"
+              variant={listScope === t.id ? "secondary" : "ghost"}
+              className="h-9"
+              onClick={() => setListScope(t.id)}
+            >
+              {t.label}
             </Button>
           ))}
         </div>
@@ -238,11 +264,17 @@ export default function NotesPage() {
                     {n.pinned && <Pin className="h-3.5 w-3.5 shrink-0 text-primary" />}
                     <h3 className="font-semibold text-foreground truncate">{n.title}</h3>
                   </div>
-                  <p className="mt-1 text-[11px] text-muted-foreground flex items-center gap-1">
-                    <FolderOpen className="h-3 w-3" /> {n.folder} · {n.userName}
-                    {n.shareEveryone && (
-                      <span className="inline-flex items-center gap-0.5 text-primary">
-                        <Share2 className="h-3 w-3" /> Team
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <FolderOpen className="h-3 w-3" /> {n.folder} · {n.userName}
+                    </span>
+                    {n.shareEveryone ? (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+                        <Globe className="h-3 w-3" /> Public
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground">
+                        <Lock className="h-3 w-3" /> Private
                       </span>
                     )}
                   </p>
@@ -279,7 +311,18 @@ export default function NotesPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-2xl">
               <h2 className="text-lg font-semibold">{readOnly.title}</h2>
-              <p className="mt-1 text-xs text-muted-foreground">{readOnly.folder} · {readOnly.userName}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {readOnly.folder} · {readOnly.userName}
+                {readOnly.shareEveryone ? (
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+                    <Globe className="h-3 w-3" /> Public (company-wide)
+                  </span>
+                ) : (
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground">
+                    <Lock className="h-3 w-3" /> Shared with you (not public)
+                  </span>
+                )}
+              </p>
               <p className="mt-4 whitespace-pre-wrap text-sm text-foreground">{readOnly.body || "—"}</p>
               <Button type="button" className="mt-6 w-full" variant="outline" onClick={() => setReadOnly(null)}>
                 Close
@@ -334,10 +377,47 @@ export default function NotesPage() {
                     <Checkbox checked={pinned} onCheckedChange={(c) => setPinned(c === true)} />
                     Pin note
                   </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={shareEveryone} onCheckedChange={(c) => setShareEveryone(c === true)} />
-                    Share with company
-                  </label>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground">Visibility</Label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label
+                      className={`flex cursor-pointer flex-col gap-0.5 rounded-lg border p-3 text-sm transition-colors ${
+                        !shareEveryone ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 font-medium text-foreground">
+                        <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        Private
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">Only you can open this note.</span>
+                      <input
+                        type="radio"
+                        name="note-visibility"
+                        className="sr-only"
+                        checked={!shareEveryone}
+                        onChange={() => setShareEveryone(false)}
+                      />
+                    </label>
+                    <label
+                      className={`flex cursor-pointer flex-col gap-0.5 rounded-lg border p-3 text-sm transition-colors ${
+                        shareEveryone ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 font-medium text-foreground">
+                        <Globe className="h-4 w-4 shrink-0 text-primary" />
+                        Public
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">Everyone in your company can read it.</span>
+                      <input
+                        type="radio"
+                        name="note-visibility"
+                        className="sr-only"
+                        checked={shareEveryone}
+                        onChange={() => setShareEveryone(true)}
+                      />
+                    </label>
+                  </div>
                 </div>
                 <div className="flex gap-2 pt-2">
                   <Button type="button" variant="outline" className="flex-1" disabled={saving} onClick={() => setShowModal(false)}>
