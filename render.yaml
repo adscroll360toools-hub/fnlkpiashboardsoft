@@ -15,7 +15,8 @@ services:
     plan: free
     region: oregon
     rootDir: backend
-    buildCommand: npm ci
+    # `npm run build` runs `npm ci` (see backend/package.json) so Render’s Node defaults work
+    buildCommand: npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
