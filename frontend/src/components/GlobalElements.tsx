@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Gift, Sparkles } from "lucide-react";
+import { Gift, Sparkles, Trophy, Award, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
@@ -41,11 +41,13 @@ export function GlobalElements() {
         userRole: currentUser.role,
       });
       const list = (rewards || []) as any[];
+      const allowedRt = ["bonus", "certificate", "recognition", "gift"] as const;
       const mapped: AppReward[] = list.map((r) => ({
         id: r.id || r._id,
         title: r.title,
         description: r.description || "",
         imageUrl: r.imageUrl,
+        rewardType: allowedRt.includes(r.rewardType) ? r.rewardType : "recognition",
         eligibleRole: r.eligibleRole,
         eligibleEmployeeId: r.eligibleEmployeeId,
         createdAt: r.created_at || r.createdAt,
@@ -60,6 +62,15 @@ export function GlobalElements() {
   useEffect(() => {
     checkPending();
   }, [checkPending]);
+
+  const TypeIcon =
+    popupReward?.rewardType === "bonus"
+      ? Trophy
+      : popupReward?.rewardType === "certificate"
+        ? Award
+        : popupReward?.rewardType === "gift"
+          ? Gift
+          : Star;
 
   const dismiss = async () => {
     if (!popupReward || !currentUser) return;
@@ -93,7 +104,7 @@ export function GlobalElements() {
             <div className="absolute bottom-0 left-0 h-32 w-32 rounded-full bg-amber-500/10 blur-2xl" />
             <div className="relative p-8 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg">
-                <Gift className="h-8 w-8 text-white" />
+                <TypeIcon className="h-8 w-8 text-white" />
               </div>
               <p className="mb-1 flex items-center justify-center gap-1 text-xs font-semibold uppercase tracking-widest text-violet-300">
                 <Sparkles className="h-3.5 w-3.5" /> New reward

@@ -90,7 +90,8 @@ export const api = {
     submit:     (id: string, sub: Record<string, unknown>)            => request<{ task: any }>(`/api/tasks/${id}/submission`, { method: 'PATCH', body: JSON.stringify(sub) }),
     addMessage: (id: string, msg: Record<string, unknown>)            => request<{ task: any }>(`/api/tasks/${id}/messages`, { method: 'POST', body: JSON.stringify(msg) }),
     patch:      (id: string, data: Record<string, unknown>)          => request<{ task: any }>(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    remove:     (id: string)                                          => request(`/api/tasks/${id}`, { method: 'DELETE' }),
+    remove:     (id: string, companyId: string)                        =>
+      request(`/api/tasks/${id}?companyId=${encodeURIComponent(companyId)}`, { method: 'DELETE' }),
   },
 
   attendance: {
@@ -109,8 +110,10 @@ export const api = {
   kpis: {
     list:           (companyId: string)                       => request<{ kpis: any[] }>(`/api/kpis?companyId=${companyId}`),
     create:         (data: Record<string, unknown>)           => request<{ kpi: any }>('/api/kpis', { method: 'POST', body: JSON.stringify(data) }),
-    updateProgress: (id: string, current: number)             => request<{ kpi: any }>(`/api/kpis/${id}/progress`, { method: 'PATCH', body: JSON.stringify({ current }) }),
-    remove:         (id: string)                              => request(`/api/kpis/${id}`, { method: 'DELETE' }),
+    updateProgress: (id: string, current: number, companyId: string) =>
+      request<{ kpi: any }>(`/api/kpis/${id}/progress`, { method: 'PATCH', body: JSON.stringify({ current, companyId }) }),
+    remove:         (id: string, companyId: string)           =>
+      request(`/api/kpis/${id}?companyId=${encodeURIComponent(companyId)}`, { method: 'DELETE' }),
   },
 
   superAdmin: {
@@ -135,14 +138,16 @@ export const api = {
     list:   (companyId: string)                      => request<{ roles: any[] }>(`/api/roles?companyId=${companyId}`),
     create: (data: Record<string, unknown>)         => request<{ role: any }>('/api/roles', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, unknown>) => request<{ role: any }>(`/api/roles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    remove: (id: string)                             => request(`/api/roles/${id}`, { method: 'DELETE' }),
+    remove: (id: string, companyId: string)          =>
+      request(`/api/roles/${id}?companyId=${encodeURIComponent(companyId)}`, { method: 'DELETE' }),
   },
 
   standups: {
     list:   (params: Record<string, string>)        => request<{ standups: any[] }>(`/api/standups?${new URLSearchParams(params).toString()}`),
     create: (data: Record<string, unknown>)         => request<{ standup: any }>('/api/standups', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, unknown>) => request<{ standup: any }>(`/api/standups/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    remove: (id: string)                           => request(`/api/standups/${id}`, { method: 'DELETE' }),
+    remove: (id: string, companyId: string)       =>
+      request(`/api/standups/${id}?companyId=${encodeURIComponent(companyId)}`, { method: 'DELETE' }),
   },
 
   notes: {
@@ -157,7 +162,8 @@ export const api = {
     list:   (companyId: string)                     => request<{ skills: any[] }>(`/api/skills?companyId=${companyId}`),
     create: (data: Record<string, unknown>)       => request<{ skill: any }>('/api/skills', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, unknown>) => request<{ skill: any }>(`/api/skills/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    remove: (id: string)                           => request(`/api/skills/${id}`, { method: 'DELETE' }),
+    remove: (id: string, companyId: string)       =>
+      request(`/api/skills/${id}?companyId=${encodeURIComponent(companyId)}`, { method: 'DELETE' }),
   },
 
   rewards: {
@@ -165,7 +171,8 @@ export const api = {
     pending: (params: Record<string, string>)      => request<{ rewards: any[] }>(`/api/rewards/pending?${new URLSearchParams(params).toString()}`),
     create:  (data: Record<string, unknown>)      => request<{ reward: any }>('/api/rewards', { method: 'POST', body: JSON.stringify(data) }),
     ack:     (rewardId: string, data: Record<string, unknown>) => request(`/api/rewards/${rewardId}/ack`, { method: 'POST', body: JSON.stringify(data) }),
-    remove:  (id: string)                         => request(`/api/rewards/${id}`, { method: 'DELETE' }),
+    remove:  (id: string, companyId: string)      =>
+      request(`/api/rewards/${id}?companyId=${encodeURIComponent(companyId)}`, { method: 'DELETE' }),
   },
 
   tenantCompany: {

@@ -187,11 +187,11 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     };
 
     const deleteTask = async (taskId: string) => {
-        if (!currentUser) return { success: false, error: "Not logged in" };
+        if (!currentUser?.companyId) return { success: false, error: "Not logged in" };
         const perms = getEffectivePermissions(currentUser, companyRoles);
         if (!perms.tasks_delete) return { success: false, error: "No permission to delete tasks" };
         try {
-            await api.tasks.remove(taskId);
+            await api.tasks.remove(taskId, currentUser.companyId);
             setTasks((prev) => prev.filter((t) => t.id !== taskId));
             return { success: true };
         } catch (err: any) {

@@ -86,7 +86,7 @@ export default function RolesPage() {
   const handleDelete = async (id: string) => {
     if (!currentUser?.companyId) return;
     try {
-      await api.roles.remove(id);
+      await api.roles.remove(id, currentUser.companyId);
       toast.success("Role removed");
       await refreshCompanyRoles();
     } catch (err: any) {

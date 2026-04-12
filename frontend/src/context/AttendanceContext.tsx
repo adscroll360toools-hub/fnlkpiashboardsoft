@@ -1,6 +1,11 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "./AuthContext";
+import {
+  DEFAULT_ATTENDANCE_RULES,
+  statusFromCheckInTime,
+  type AttendanceRules,
+} from "@/lib/attendanceRules";
 
 export type AttendanceStatus = "Present" | "Late" | "Absent" | "Leave" | "Break" | "—";
 
@@ -52,6 +57,12 @@ function mapRecord(r: any): AttendanceRecord {
     };
 }
 
+function refineStatus(r: AttendanceRecord, rules: AttendanceRules): AttendanceRecord {
+  if (r.status === "Leave" || r.status === "Break") return r;
+  if (r.checkInTime) return { ...r, status: statusFromCheckInTime(r.checkInTime, rules) };
+  return r;
+}
+
 function mapBreakRequest(r: any): BreakRequest {
     return {
         id: r.id || r._id,
@@ -68,28 +79,45 @@ export function AttendanceProvider({ children }: { children: ReactNode }) {
     const { currentUser } = useAuth();
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
     const [breakRequests, setBreakRequests] = useState<BreakRequest[]>([]);
+    const [attendanceRules, setAttendanceRules] = useState<AttendanceRules>(DEFAULT_ATTENDANCE_RULES);
+
+    const loadAttendance = useCallback(async () => {
+        if (!currentUser?.companyId) return;
+        let rules = DEFAULT_ATTENDANCE_RULES;
+        try {
+            const { company } = await api.tenantCompany.get(currentUser.companyId);
+            if (company?.attendanceSettings && typeof company.attendanceSettings === "object") {
+                rules = { ...DEFAULT_ATTENDANCE_RULES, ...company.attendanceSettings };
+            }
+        } catch {
+            /* defaults */
+        }
+        setAttendanceRules(rules);
+        try {
+            const [{ records: rawRecs }, { breakRequests: rawBr }] = await Promise.all([
+                api.attendance.list(currentUser.companyId),
+                api.attendance.breaks.list(currentUser.companyId),
+            ]);
+            setRecords((rawRecs || []).map(mapRecord).map((r) => refineStatus(r, rules)));
+            setBreakRequests((rawBr || []).map(mapBreakRequest));
+        } catch (err) {
+            console.error("Error loading attendance data:", err);
+        }
+    }, [currentUser?.companyId]);
 
     useEffect(() => {
-        if (!currentUser || !currentUser.companyId) return;
-        Promise.all([
-            api.attendance.list(currentUser.companyId),
-            api.attendance.breaks.list(currentUser.companyId),
-        ]).then(([{ records }, { breakRequests }]) => {
-            setRecords(records.map(mapRecord));
-            setBreakRequests(breakRequests.map(mapBreakRequest));
-        }).catch(err => console.error("Error loading attendance data:", err));
-    }, [currentUser?.id, currentUser?.companyId]);
+        loadAttendance();
+    }, [currentUser?.id, loadAttendance]);
+
+    useEffect(() => {
+        if (!currentUser?.companyId) return;
+        const tick = window.setInterval(() => loadAttendance(), 60000);
+        return () => window.clearInterval(tick);
+    }, [currentUser?.companyId, loadAttendance]);
 
     const getCurrentDateStr = () => {
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    };
-
-    const determineStatus = (time: Date): AttendanceStatus => {
-        const val = time.getHours() * 60 + time.getMinutes();
-        if (val <= 9 * 60 + 50) return "Present";
-        if (val <= 11 * 60) return "Late";
-        return "Absent";
     };
 
     const checkIn = async () => {
@@ -99,8 +127,8 @@ export function AttendanceProvider({ children }: { children: ReactNode }) {
         if (existing?.checkInTime) return { success: false, error: "Already checked in today" };
 
         const now = new Date();
-        const status = determineStatus(now);
         const timeStr = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+        const status = statusFromCheckInTime(timeStr, attendanceRules);
 
         try {
             const { record } = await api.attendance.checkin({ 
@@ -110,7 +138,7 @@ export function AttendanceProvider({ children }: { children: ReactNode }) {
                 status,
                 companyId: currentUser.companyId
             });
-            const mapped = mapRecord(record);
+            const mapped = refineStatus(mapRecord(record), attendanceRules);
             setRecords(prev => {
                 const idx = prev.findIndex(r => r.userId === currentUser.id && r.date === date);
                 if (idx !== -1) { const updated = [...prev]; updated[idx] = mapped; return updated; }
@@ -194,17 +222,9 @@ export function AttendanceProvider({ children }: { children: ReactNode }) {
         if (!record || record.status !== "Break") return { success: false, error: "Not currently on break." };
 
         const timeStr = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-        let restoredStatus: AttendanceStatus = "Present";
-        if (record.checkInTime) {
-            const match = record.checkInTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
-            if (match) {
-                let h = parseInt(match[1]), m = parseInt(match[2]);
-                if (match[3].toUpperCase() === "PM" && h !== 12) h += 12;
-                if (match[3].toUpperCase() === "AM" && h === 12) h = 0;
-                const tDate = new Date(); tDate.setHours(h, m, 0, 0);
-                restoredStatus = determineStatus(tDate);
-            }
-        }
+        const restoredStatus: AttendanceStatus = record.checkInTime
+            ? statusFromCheckInTime(record.checkInTime, attendanceRules)
+            : "Present";
         try {
             await api.attendance.update(record.id, { status: restoredStatus, breakEndTime: timeStr });
             setRecords(prev => prev.map(r => r.id === record.id ? { ...r, status: restoredStatus, breakEndTime: timeStr } : r));
@@ -223,7 +243,7 @@ export function AttendanceProvider({ children }: { children: ReactNode }) {
                 status,
                 companyId: currentUser.companyId
             });
-            const mapped = mapRecord(record);
+            const mapped = refineStatus(mapRecord(record), attendanceRules);
             setRecords(prev => {
                 const existing = prev.find(r => r.userId === userId && r.date === date);
                 if (existing) return prev.map(r => r.id === existing.id ? mapped : r);

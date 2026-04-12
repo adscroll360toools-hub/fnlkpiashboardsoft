@@ -565,7 +565,26 @@ export default function TasksPage() {
                       <div className="space-y-4 text-sm font-medium">
                           <div><span className="text-muted-foreground mr-2">Status:</span> <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${statusConfig[selectedTask.status].color}`}>{selectedTask.status}</span></div>
                           <div><span className="text-muted-foreground mr-2">Type:</span> {selectedTask.taskKind === "daily" ? "Daily" : selectedTask.taskKind === "deadline_based" ? "Deadline-based" : "One-time"}</div>
-                          <div><span className="text-muted-foreground mr-2">Assignment:</span> {selectedTask.type === "Group" ? "Group" : "Individual"}</div>
+                          <div><span className="text-muted-foreground mr-2">Assignment:</span> {selectedTask.type === "Group" ? "Group (shared status)" : "Individual"}</div>
+                          {selectedTask.type === "Group" && (selectedTask.assigneeIds?.length ?? 0) > 0 ? (
+                            <div>
+                              <span className="text-muted-foreground mr-2 align-top">Team:</span>
+                              <ul className="mt-1 inline-block list-inside text-xs font-normal text-muted-foreground">
+                                {(selectedTask.assigneeIds || []).map((id) => {
+                                  const u = users.find((x) => x.id === id);
+                                  return (
+                                    <li key={id}>
+                                      {u?.name || id}{" "}
+                                      <span className="text-muted-foreground/80">({u?.role || "—"})</span>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                              <p className="mt-2 text-[11px] font-normal text-muted-foreground">Progress is tracked together on this single task.</p>
+                            </div>
+                          ) : (
+                            <div><span className="text-muted-foreground mr-2">Assignee:</span> {selectedTask.assigneeName}</div>
+                          )}
                           <div><span className="text-muted-foreground mr-2">Category:</span> {selectedTask.category}</div>
                           <div><span className="text-muted-foreground mr-2">Priority:</span> <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${priorityStyle[selectedTask.priority]}`}>{selectedTask.priority}</span></div>
                           {selectedTask.tags?.length ? (

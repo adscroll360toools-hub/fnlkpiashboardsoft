@@ -149,7 +149,7 @@ export default function SkillsPage() {
   const handleRemove = async (row: SkillRow) => {
     if (!companyId) return;
     try {
-      await api.skills.remove(row.id);
+      await api.skills.remove(row.id, companyId);
       toast.success("Skill removed");
       await load();
     } catch (e: any) {

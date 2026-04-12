@@ -189,7 +189,7 @@ export default function StandupsPage() {
     if (!isManager) return;
     if (!window.confirm(`Delete standup for ${row.userName} on ${row.standupDate}?`)) return;
     try {
-      await api.standups.remove(row.id);
+      await api.standups.remove(row.id, companyId);
       toast.success("Standup removed");
       await loadStandups();
     } catch (e: any) {
@@ -390,7 +390,7 @@ export default function StandupsPage() {
                       >
                         {teamForStandup.map((u) => (
                           <option key={u.id} value={u.id}>
-                            {u.name} ({u.role})
+                            {u.name} ({u.position || u.role})
                           </option>
                         ))}
                       </select>

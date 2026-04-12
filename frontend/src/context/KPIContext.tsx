@@ -139,8 +139,9 @@ export function KPIProvider({ children }: { children: ReactNode }) {
     };
 
     const updateKPIProgress = async (kpiId: string, currentVal: number) => {
+        if (!currentUser?.companyId) return { success: false, error: "Missing company" };
         try {
-            await api.kpis.updateProgress(kpiId, currentVal);
+            await api.kpis.updateProgress(kpiId, currentVal, currentUser.companyId);
             setKPIs(prev => prev.map(k => k.id === kpiId ? { ...k, current: currentVal } : k));
             return { success: true };
         } catch (err: any) {
@@ -149,13 +150,13 @@ export function KPIProvider({ children }: { children: ReactNode }) {
     };
 
     const deleteKPI = async (kpiId: string) => {
-        if (!currentUser) return { success: false, error: "Not logged in" };
+        if (!currentUser?.companyId) return { success: false, error: "Not logged in" };
         const perms = getEffectivePermissions(currentUser, companyRoles);
         if (currentUser.role !== "admin" && !perms.kpi_manage) {
             return { success: false, error: "You do not have permission to delete KPIs" };
         }
         try {
-            await api.kpis.remove(kpiId);
+            await api.kpis.remove(kpiId, currentUser.companyId);
             setKPIs(prev => prev.filter(k => k.id !== kpiId));
             return { success: true };
         } catch (err: any) {

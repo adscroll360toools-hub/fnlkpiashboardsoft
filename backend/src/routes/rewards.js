@@ -7,9 +7,11 @@ const router = Router();
 function isEligible(reward, user) {
   if (user.role === 'admin' || user.role === 'super_admin') return false;
   if (reward.eligibleEmployeeId) return reward.eligibleEmployeeId === user.id;
-  if (!reward.eligibleRole) return true;
-  if (reward.eligibleRole === 'All') return user.role === 'employee' || user.role === 'controller';
-  return reward.eligibleRole === user.role;
+  const role = reward.eligibleRole;
+  if (role == null || role === '' || role === 'All') {
+    return user.role === 'employee' || user.role === 'controller';
+  }
+  return role === user.role;
 }
 
 /** GET /api/rewards/pending?companyId=&userId=&userRole= — register before `/` */
@@ -47,7 +49,19 @@ router.post('/', async (req, res, next) => {
     if (!companyId || !title?.trim()) {
       return res.status(400).json({ error: 'companyId and title are required' });
     }
-    const reward = await Reward.create(req.body);
+    const allowedTypes = ['bonus', 'certificate', 'recognition', 'gift'];
+    const rewardType = allowedTypes.includes(req.body.rewardType) ? req.body.rewardType : 'recognition';
+    const reward = await Reward.create({
+      companyId,
+      title: String(title).trim(),
+      description: String(req.body.description || ''),
+      imageUrl: String(req.body.imageUrl || ''),
+      eligibleRole: req.body.eligibleRole ?? null,
+      eligibleEmployeeId: req.body.eligibleEmployeeId ?? null,
+      createdById: String(req.body.createdById || ''),
+      createdByName: String(req.body.createdByName || ''),
+      rewardType,
+    });
     res.status(201).json({ reward });
   } catch (err) {
     next(err);

@@ -8,6 +8,14 @@ import { Gift, Plus, Trophy, Star, Award, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useReward } from "@/context/RewardContext";
 import { useAuth, UserRole } from "@/context/AuthContext";
+import type { RewardFormat } from "@/context/RewardContext";
+
+const FORMAT_LABELS: Record<RewardFormat, string> = {
+  bonus: "Bonus",
+  certificate: "Certificate",
+  recognition: "Recognition",
+  gift: "Gift",
+};
 
 const rewardTypes = [
   { icon: Trophy, label: "Bonus", color: "bg-primary/10 text-primary" },
@@ -39,12 +47,13 @@ export default function RewardsPage() {
     title: "",
     description: "",
     imageUrl: "",
+    rewardType: "recognition" as RewardFormat,
     eligibleRole: "All" as UserRole | "All",
     eligibleEmployeeId: ""
   });
 
   const openAdd = () => {
-    setForm({ title: "", description: "", imageUrl: "", eligibleRole: "All", eligibleEmployeeId: "" });
+    setForm({ title: "", description: "", imageUrl: "", rewardType: "recognition", eligibleRole: "All", eligibleEmployeeId: "" });
     setShowModal(true);
   };
 
@@ -57,6 +66,7 @@ export default function RewardsPage() {
       title: form.title,
       description: form.description,
       imageUrl: form.imageUrl,
+      rewardType: form.rewardType,
       eligibleRole: form.eligibleRole === "All" ? undefined : form.eligibleRole,
       eligibleEmployeeId: form.eligibleEmployeeId || undefined,
     });
@@ -81,7 +91,9 @@ export default function RewardsPage() {
         <motion.div variants={fadeUp} className="flex items-end justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Rewards & Incentives</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Manage employee recognition and rewards</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Team-wide rewards surface on each team member home screen once. Choose a format when sending.
+            </p>
           </div>
           <Button id="add-reward-btn" className="h-10 gap-2 rounded-lg px-5 text-sm font-medium" onClick={openAdd}>
             <Plus className="h-4 w-4" /> Add Reward
@@ -116,6 +128,7 @@ export default function RewardsPage() {
               <thead>
                 <tr className="border-b">
                   <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Reward</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden sm:table-cell">Format</th>
                   <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Target</th>
                   <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Date</th>
                   <th className="px-5 py-3 w-10"></th>
@@ -130,6 +143,9 @@ export default function RewardsPage() {
                       <td className="px-5 py-3">
                         <p className="text-sm font-medium text-foreground">{reward.title}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground truncate max-w-xs">{reward.description}</p>
+                      </td>
+                      <td className="px-5 py-3 text-sm text-muted-foreground hidden sm:table-cell">
+                        {FORMAT_LABELS[reward.rewardType || "recognition"]}
                       </td>
                       <td className="px-5 py-3 text-sm text-muted-foreground">{rewardTargetLabel(reward, users)}</td>
                       <td className="px-5 py-3 font-tabular text-sm text-muted-foreground">{new Date(reward.createdAt).toLocaleDateString()}</td>
@@ -172,6 +188,19 @@ export default function RewardsPage() {
                   <div>
                     <Label>Reward Image URL (Optional)</Label>
                     <Input placeholder="https://..." value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Format</Label>
+                    <select
+                      value={form.rewardType}
+                      onChange={(e) => setForm({ ...form, rewardType: e.target.value as RewardFormat })}
+                      className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="bonus">Bonus</option>
+                      <option value="certificate">Certificate</option>
+                      <option value="recognition">Recognition</option>
+                      <option value="gift">Gift</option>
+                    </select>
                   </div>
                   <div className="grid grid-cols-2 gap-3 mt-1">
                     <div>

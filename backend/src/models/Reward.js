@@ -10,6 +10,11 @@ const rewardSchema = new mongoose.Schema(
     eligibleEmployeeId: { type: String, default: null },
     createdById: { type: String, default: '' },
     createdByName: { type: String, default: '' },
+    rewardType: {
+      type: String,
+      enum: ['bonus', 'certificate', 'recognition', 'gift'],
+      default: 'recognition',
+    },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },

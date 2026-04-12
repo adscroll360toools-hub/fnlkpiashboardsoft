@@ -2,11 +2,14 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { useAuth, UserRole } from "./AuthContext";
 import { api } from "@/lib/api";
 
+export type RewardFormat = "bonus" | "certificate" | "recognition" | "gift";
+
 export interface AppReward {
   id: string;
   title: string;
   description: string;
   imageUrl?: string;
+  rewardType?: RewardFormat;
   eligibleRole?: UserRole | "All";
   eligibleEmployeeId?: string;
   createdAt: string;
@@ -24,11 +27,14 @@ interface RewardContextType {
 const RewardContext = createContext<RewardContextType | null>(null);
 
 function mapReward(r: any): AppReward {
+  const allowed: RewardFormat[] = ["bonus", "certificate", "recognition", "gift"];
+  const rewardType = allowed.includes(r.rewardType) ? r.rewardType : "recognition";
   return {
     id: r.id || r._id,
     title: r.title,
     description: r.description || "",
     imageUrl: r.imageUrl,
+    rewardType,
     eligibleRole: r.eligibleRole || undefined,
     eligibleEmployeeId: r.eligibleEmployeeId || undefined,
     createdAt: r.created_at || r.createdAt || new Date().toISOString(),
@@ -67,6 +73,7 @@ export function RewardProvider({ children }: { children: ReactNode }) {
           companyId: currentUser.companyId,
           createdById: currentUser.id,
           createdByName: currentUser.name,
+          rewardType: r.rewardType || "recognition",
           eligibleRole: r.eligibleRole === "All" ? null : r.eligibleRole,
           eligibleEmployeeId: r.eligibleEmployeeId || null,
         });
@@ -84,7 +91,7 @@ export function RewardProvider({ children }: { children: ReactNode }) {
       if (currentUser?.role !== "admin") return { success: false, error: "Not authorized" };
       if (!currentUser.companyId) return { success: false, error: "No company" };
       try {
-        await api.rewards.remove(rewardId);
+        await api.rewards.remove(rewardId, currentUser.companyId);
         await refreshRewards();
         return { success: true };
       } catch (err: any) {

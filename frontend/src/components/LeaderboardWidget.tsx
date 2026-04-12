@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useKPI } from "@/context/KPIContext";
 import { useTask } from "@/context/TaskContext";
+import { isTaskAssignedTo } from "@/lib/taskHelpers";
 import { motion, AnimatePresence } from "framer-motion";
 
 type LeaderboardPeriod = "Weekly" | "Monthly" | "Yearly";
@@ -47,10 +48,12 @@ export function LeaderboardWidget() {
             }
 
             // Find Tasks completed in period
-            const myCompletedTasks = tasks.filter(t => 
-                t.assigneeId === emp.id && 
-                (t.status === "Completed" || t.status === "Approved") &&
-                t.submission && new Date(t.submission.submittedAt) >= startPeriodDate
+            const myCompletedTasks = tasks.filter(
+                (t) =>
+                    isTaskAssignedTo(t, emp.id) &&
+                    (t.status === "Completed" || t.status === "Approved") &&
+                    t.submission &&
+                    new Date(t.submission.submittedAt) >= startPeriodDate
             );
 
             // Productivity Score: 70% KPI + 30% tasks logic (Assuming 5 tasks is 100% productivity for weekly to mock it, or just use tasks counted)

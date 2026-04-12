@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { KPIProgressBar } from "@/components/KPIProgressBar";
 import { LeaderboardWidget } from "@/components/LeaderboardWidget";
 import { TaskDashboard } from "@/components/TaskDashboard";
+import { PulseSurveyCard } from "@/components/PulseSurveyCard";
 import { isTaskAssignedTo } from "@/lib/taskHelpers";
 
 export default function EmployeeDashboard() {
@@ -24,12 +25,12 @@ export default function EmployeeDashboard() {
     const [editKpi, setEditKpi] = useState<AppKPI | null>(null);
     const [kpiUpdateVal, setKpiUpdateVal] = useState("");
 
-    const handleKpiUpdateSubmit = (e: React.FormEvent) => {
+    const handleKpiUpdateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editKpi) return;
         const val = Number(kpiUpdateVal);
         if (isNaN(val) || val < 0) return toast.error("Invalid progress value");
-        const res = updateKPIProgress(editKpi.id, val);
+        const res = await updateKPIProgress(editKpi.id, val);
         if (res.success) {
             toast.success("KPI Progress updated!");
             setEditKpi(null);
@@ -77,13 +78,18 @@ export default function EmployeeDashboard() {
                 <StatCard title="My Targets" value={myKpis.length.toString()} subtitle="Active targets" icon={Target} />
             </motion.div>
 
-            <motion.div variants={fadeUp} className="rounded-2xl border bg-card p-4 shadow-card">
+            <motion.div variants={fadeUp} className="grid gap-4 lg:grid-cols-12">
+                <div className="lg:col-span-5">
+                    <PulseSurveyCard />
+                </div>
+                <div className="lg:col-span-7 rounded-2xl border bg-card p-4 shadow-card">
                 <h3 className="text-sm font-semibold text-foreground">Weekly performance snapshot</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
                     Tasks marked completed or approved in the last 7 days (by created date):{" "}
                     <span className="font-semibold text-foreground">{weeklyCompleted}</span>
                     {" · "}Attendance today feeds future performance scoring.
                 </p>
+                </div>
             </motion.div>
 
             <div className="grid gap-6 lg:grid-cols-12">
