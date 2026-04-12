@@ -1,0 +1,27 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# Deploy: https://dashboard.render.com → New + → Blueprint
+# Paste repo: https://github.com/adscroll360toools-hub/FNLKPIDashboardSoft
+#
+# After the API is live, deploy the Vite app on Vercel (or Render Static Site)
+# with root directory "frontend", build "npm run build", output "dist", and set:
+#   VITE_API_URL=https://<this-service>.onrender.com
+
+version: "1"
+services:
+  - type: web
+    name: fnlkpi-backend
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: MONGO_URI
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
