@@ -1,10 +1,11 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "./AuthContext";
 import { getEffectivePermissions } from "@/lib/permissions";
 
 export type TaskStatus = "Pending" | "In Progress" | "Completed" | "Approved";
 export type TaskKind = "daily" | "one_time" | "deadline_based";
+export type TaskPriority = "Low" | "Medium" | "High";
 
 export interface TaskMessage {
     id: string;
@@ -29,6 +30,7 @@ export interface AppTask {
     category: string;
     assigneeId: string;
     assigneeName: string;
+    assigneeIds: string[];
     assignedById: string;
     assignedByName: string;
     kpiRelationId?: string;
@@ -39,6 +41,10 @@ export interface AppTask {
     status: TaskStatus;
     deadline: string;
     timeSpent: string;
+    priority: TaskPriority;
+    tags: string[];
+    dependsOnTaskId?: string | null;
+    recurring?: { enabled: boolean; rule: string };
     notes?: string;
     createdAt: string;
     messages: TaskMessage[];
@@ -47,8 +53,10 @@ export interface AppTask {
 
 interface TaskContextType {
     tasks: AppTask[];
+    refreshTasks: () => Promise<void>;
     createTask: (task: Omit<AppTask, "id" | "createdAt" | "messages" | "submission">) => Promise<{ success: boolean; error?: string }>;
     updateTaskStatus: (taskId: string, status: TaskStatus) => Promise<{ success: boolean; error?: string }>;
+    patchTask: (taskId: string, partial: Partial<Pick<AppTask, "priority" | "tags" | "dependsOnTaskId" | "notes" | "title" | "category" | "assigneeIds" | "assigneeId" | "assigneeName" | "recurring">>) => Promise<{ success: boolean; error?: string }>;
     submitTaskProof: (taskId: string, submission: Omit<TaskSubmission, "submittedAt">) => Promise<{ success: boolean; error?: string }>;
     addMessage: (taskId: string, text: string, fileUrl?: string) => Promise<{ success: boolean; error?: string }>;
     deleteTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
@@ -57,12 +65,19 @@ interface TaskContextType {
 const TaskContext = createContext<TaskContextType | null>(null);
 
 function mapTask(t: any): AppTask {
+    const assigneeIds =
+        Array.isArray(t.assigneeIds) && t.assigneeIds.length > 0
+            ? t.assigneeIds
+            : t.assigneeId
+              ? [t.assigneeId]
+              : [];
     return {
         id: t.id || t._id,
         title: t.title,
         category: t.category,
         assigneeId: t.assigneeId,
         assigneeName: t.assigneeName || t.assigneeId,
+        assigneeIds,
         assignedById: t.assignedById,
         assignedByName: t.assignedByName || t.assignedById,
         kpiRelationId: t.kpiRelationId,
@@ -73,6 +88,10 @@ function mapTask(t: any): AppTask {
         status: t.status,
         deadline: t.deadline,
         timeSpent: t.timeSpent,
+        priority: (t.priority as TaskPriority) || "Medium",
+        tags: Array.isArray(t.tags) ? t.tags : [],
+        dependsOnTaskId: t.dependsOnTaskId ?? null,
+        recurring: t.recurring || { enabled: false, rule: "" },
         notes: t.notes,
         createdAt: t.created_at || t.createdAt,
         messages: t.messages || [],
@@ -84,25 +103,34 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     const { currentUser, companyRoles } = useAuth();
     const [tasks, setTasks] = useState<AppTask[]>([]);
 
+    const refreshTasks = useCallback(async () => {
+        if (!currentUser?.companyId) return;
+        try {
+            const { tasks: raw } = await api.tasks.list(currentUser.companyId);
+            setTasks(raw.map(mapTask));
+        } catch (err) {
+            console.error("Error fetching tasks:", err);
+        }
+    }, [currentUser?.companyId]);
+
     useEffect(() => {
-        if (!currentUser || !currentUser.companyId) return;
-        api.tasks.list(currentUser.companyId)
-            .then(({ tasks }) => setTasks(tasks.map(mapTask)))
-            .catch(err => console.error("Error fetching tasks:", err));
-    }, [currentUser?.id, currentUser?.companyId]);
+        refreshTasks();
+    }, [currentUser?.id, refreshTasks]);
 
     const createTask = async (t: Omit<AppTask, "id" | "createdAt" | "messages" | "submission">) => {
         if (!currentUser) return { success: false, error: "Not logged in" };
         const perms = getEffectivePermissions(currentUser, companyRoles);
         if (!perms.tasks_create) return { success: false, error: "You do not have permission to create tasks" };
         try {
+            const assigneeIds = t.assigneeIds?.length ? t.assigneeIds : t.assigneeId ? [t.assigneeId] : [];
             const { task } = await api.tasks.create({
                 ...t,
+                assigneeIds,
                 assignedById: currentUser.id,
                 assignedByName: currentUser.name,
                 companyId: currentUser.companyId,
             });
-            setTasks(prev => [mapTask(task), ...prev]);
+            setTasks((prev) => [mapTask(task), ...prev]);
             return { success: true };
         } catch (err: any) {
             return { success: false, error: err.message };
@@ -113,7 +141,18 @@ export function TaskProvider({ children }: { children: ReactNode }) {
         if (!currentUser) return { success: false, error: "Not logged in" };
         try {
             await api.tasks.setStatus(taskId, status);
-            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
+            setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)));
+            return { success: true };
+        } catch (err: any) {
+            return { success: false, error: err.message };
+        }
+    };
+
+    const patchTask = async (taskId: string, partial: Partial<AppTask>) => {
+        if (!currentUser) return { success: false, error: "Not logged in" };
+        try {
+            const { task } = await api.tasks.patch(taskId, partial as Record<string, unknown>);
+            setTasks((prev) => prev.map((t) => (t.id === taskId ? mapTask(task) : t)));
             return { success: true };
         } catch (err: any) {
             return { success: false, error: err.message };
@@ -124,7 +163,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
         if (!currentUser) return { success: false, error: "Not logged in" };
         try {
             const { task } = await api.tasks.submit(taskId, sub);
-            setTasks(prev => prev.map(t => t.id === taskId ? mapTask(task) : t));
+            setTasks((prev) => prev.map((t) => (t.id === taskId ? mapTask(task) : t)));
             return { success: true };
         } catch (err: any) {
             return { success: false, error: err.message };
@@ -140,7 +179,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
                 text,
                 fileUrl,
             });
-            setTasks(prev => prev.map(t => t.id === taskId ? mapTask(task) : t));
+            setTasks((prev) => prev.map((t) => (t.id === taskId ? mapTask(task) : t)));
             return { success: true };
         } catch (err: any) {
             return { success: false, error: err.message };
@@ -153,7 +192,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
         if (!perms.tasks_delete) return { success: false, error: "No permission to delete tasks" };
         try {
             await api.tasks.remove(taskId);
-            setTasks(prev => prev.filter(t => t.id !== taskId));
+            setTasks((prev) => prev.filter((t) => t.id !== taskId));
             return { success: true };
         } catch (err: any) {
             return { success: false, error: err.message };
@@ -161,7 +200,18 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <TaskContext.Provider value={{ tasks, createTask, updateTaskStatus, submitTaskProof, addMessage, deleteTask }}>
+        <TaskContext.Provider
+            value={{
+                tasks,
+                refreshTasks,
+                createTask,
+                updateTaskStatus,
+                patchTask,
+                submitTaskProof,
+                addMessage,
+                deleteTask,
+            }}
+        >
             {children}
         </TaskContext.Provider>
     );

@@ -2,21 +2,29 @@ import { useState, useRef, useEffect, useMemo, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Clock, CheckCircle2, AlertCircle, Eye,
-  Trash2, X, ChevronDown, User, MessageCircle, Link as LinkIcon, FileText, Send
+  Trash2, X, ChevronDown, User, MessageCircle, Link as LinkIcon, FileText, Send,
+  LayoutGrid, List,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { stagger, fadeUp } from "@/lib/animations";
-import { useTask, AppTask, TaskStatus, TaskKind } from "@/context/TaskContext";
+import { useTask, AppTask, TaskStatus, TaskKind, TaskPriority } from "@/context/TaskContext";
 import { useAuth } from "@/context/AuthContext";
 import { getEffectivePermissions } from "@/lib/permissions";
-import { isTaskOverdue, endOfToday } from "@/lib/taskHelpers";
+import { isTaskOverdue, endOfToday, isTaskAssignedTo } from "@/lib/taskHelpers";
 import { useOutsideClick } from "@/hooks/useOutsideClick";
 import { toast } from "sonner";
 
 const CATEGORIES = ["Social Media", "Video SEO", "Thumbnail Design", "Shorts Editing", "Admin Support", "Marketing", "Strategy"];
 const STATUSES: TaskStatus[] = ["Pending", "In Progress", "Completed", "Approved"];
+const PRIORITIES: TaskPriority[] = ["Low", "Medium", "High"];
+
+const priorityStyle: Record<TaskPriority, string> = {
+  Low: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+  Medium: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
+  High: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200",
+};
 
 const statusConfig = {
   "Pending": { color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", icon: Clock },
@@ -123,6 +131,7 @@ const ProofSection = memo(({ task, currentUser }: { task: AppTask, currentUser: 
 export default function TasksPage() {
   const { currentUser, users, companyRoles } = useAuth();
   const { tasks, createTask, updateTaskStatus } = useTask();
+  const [viewMode, setViewMode] = useState<"table" | "board">("table");
   const perms = getEffectivePermissions(currentUser, companyRoles);
   const assignees = users.filter((u) => u.role !== "admin");
 
@@ -143,12 +152,16 @@ export default function TasksPage() {
     notes: "",
     taskKind: "one_time" as TaskKind,
     deadlineLocal: "",
+    priority: "Medium" as TaskPriority,
+    tagsStr: "",
+    dependsOnTaskId: "",
   });
 
   useOutsideClick(statusMenuRef, () => setOpenStatusMenu(null));
 
-  const filtered = (activeFilter === "All" ? tasks : tasks.filter((t) => t.status === activeFilter))
-      .filter(t => currentUser?.role === "employee" ? t.assigneeId === currentUser.id : true);
+  const filtered = (activeFilter === "All" ? tasks : tasks.filter((t) => t.status === activeFilter)).filter((t) =>
+    currentUser?.role === "employee" && currentUser.id ? isTaskAssignedTo(t, currentUser.id) : true
+  );
 
   const handleOpen = () => {
     setForm({
@@ -160,6 +173,9 @@ export default function TasksPage() {
       notes: "",
       taskKind: "one_time",
       deadlineLocal: "",
+      priority: "Medium",
+      tagsStr: "",
+      dependsOnTaskId: "",
     });
     setShowModal(true);
   };
@@ -188,11 +204,14 @@ export default function TasksPage() {
       }
     }
 
+    const aid = form.assignedToId || (currentUser?.role === "employee" ? currentUser.id : "");
+    const tags = form.tagsStr.split(",").map((s) => s.trim()).filter(Boolean);
     const res = await createTask({
         title: form.title.trim(),
         category: form.category,
-        assigneeId: form.assignedToId || (currentUser?.role === "employee" ? currentUser.id : ""),
-        assigneeName: users.find(u => u.id === form.assignedToId)?.name || (currentUser?.role === "employee" ? currentUser.name : "Unassigned"),
+        assigneeId: aid,
+        assigneeName: users.find(u => u.id === aid)?.name || (currentUser?.role === "employee" ? currentUser.name : "Unassigned"),
+        assigneeIds: aid ? [aid] : [],
         assignedById: currentUser!.id,
         assignedByName: currentUser!.name,
         type: "Individual",
@@ -201,7 +220,11 @@ export default function TasksPage() {
         status: form.status,
         deadline,
         timeSpent: "0m",
-        notes: form.notes
+        notes: form.notes,
+        priority: form.priority,
+        tags,
+        dependsOnTaskId: form.dependsOnTaskId || null,
+        recurring: { enabled: false, rule: "" },
     });
     if (res.success) { setShowModal(false); toast.success("Task created!"); }
     else toast.error(res.error);
@@ -210,6 +233,20 @@ export default function TasksPage() {
   const handleStatusChange = async (taskId: string, s: TaskStatus) => {
     await updateTaskStatus(taskId, s);
     setOpenStatusMenu(null);
+  };
+
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    e.dataTransfer.setData("text/task-id", taskId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDropOnColumn = async (e: React.DragEvent, status: TaskStatus) => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData("text/task-id");
+    if (!taskId) return;
+    if (currentUser?.role === "employee" && status === "Approved") return;
+    const res = await updateTaskStatus(taskId, status);
+    if (!res.success) toast.error(res.error || "Could not update status");
   };
 
   return (
@@ -225,20 +262,73 @@ export default function TasksPage() {
           )}
         </motion.div>
 
-        <motion.div variants={fadeUp} className="flex gap-2 border-b">
+        <motion.div variants={fadeUp} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b pb-2">
+          <div className="flex gap-2 overflow-x-auto">
           {(["All", ...STATUSES] as const).map((tab) => (
             <button key={tab} onClick={() => setActiveFilter(tab)}
-              className={`pb-2.5 px-4 text-sm font-medium transition-all relative ${activeFilter === tab ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+              className={`pb-2.5 px-4 text-sm font-medium transition-all relative whitespace-nowrap ${activeFilter === tab ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
               {tab} {activeFilter === tab && <motion.div layoutId="filter-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
             </button>
           ))}
+          </div>
+          <div className="flex rounded-lg border bg-muted/40 p-0.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${viewMode === "table" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+            >
+              <List className="h-3.5 w-3.5" /> Table
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("board")}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${viewMode === "board" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" /> Board
+            </button>
+          </div>
         </motion.div>
 
-        <motion.div variants={fadeUp} className="rounded-2xl bg-card shadow-card overflow-visible">
+        {viewMode === "board" && (
+          <motion.div variants={fadeUp} className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {STATUSES.map((status) => (
+              <div
+                key={status}
+                className="min-h-[280px] rounded-2xl border bg-muted/20 p-3"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => handleDropOnColumn(e, status)}
+              >
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{status}</p>
+                <div className="space-y-2">
+                  {filtered
+                    .filter((t) => t.status === status)
+                    .map((task) => (
+                      <div
+                        key={task.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, task.id)}
+                        onClick={() => setSelectedTaskId(task.id)}
+                        className={`cursor-grab active:cursor-grabbing rounded-xl border bg-card p-3 shadow-sm transition hover:shadow-md ${isTaskOverdue(task) ? "border-rose-300 dark:border-rose-800" : ""}`}
+                      >
+                        <p className="text-sm font-medium text-foreground">{task.title}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${priorityStyle[task.priority]}`}>{task.priority}</span>
+                          <span className="text-[10px] text-muted-foreground">{task.assigneeName}</span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        )}
+
+        <motion.div variants={fadeUp} className={`rounded-2xl bg-card shadow-card overflow-visible ${viewMode === "board" ? "hidden" : ""}`}>
           <table className="w-full">
             <thead>
               <tr className="border-b">
                 <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground rounded-tl-2xl">Task Details</th>
+                <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden md:table-cell">Priority</th>
                 <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Assignee</th>
                 <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Deadline</th>
                 <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground rounded-tr-2xl">Status</th>
@@ -252,6 +342,9 @@ export default function TasksPage() {
                     <td className="px-5 py-3">
                         <p className="text-sm font-medium text-foreground">{task.title}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground truncate max-w-xs">{task.category}</p>
+                    </td>
+                    <td className="px-5 py-3 hidden md:table-cell">
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold ${priorityStyle[task.priority]}`}>{task.priority}</span>
                     </td>
                     <td className="px-5 py-3 capitalize text-sm text-foreground font-medium">{task.assigneeName}</td>
                     <td className="px-5 py-3 text-sm text-muted-foreground font-medium">{task.deadline}</td>
@@ -277,7 +370,7 @@ export default function TasksPage() {
               ))}
               {filtered.length === 0 && (
                 <tr className="border-none">
-                    <td colSpan={4} className="px-6 py-20 text-center text-muted-foreground italic text-sm">No tasks found in this category.</td>
+                    <td colSpan={5} className="px-6 py-20 text-center text-muted-foreground italic text-sm">No tasks found in this category.</td>
                 </tr>
               )}
             </tbody>
@@ -312,6 +405,27 @@ export default function TasksPage() {
                         <div className="space-y-1.5"><Label>Category</Label><select value={form.category} onChange={e=>setForm({...form, category: e.target.value})} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">{CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
                         <div className="space-y-1.5"><Label>Assign To</Label><select value={form.assignedToId} onChange={e=>setForm({...form, assignedToId: e.target.value})} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Select Employee...</option>{assignees.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label>Priority</Label>
+                        <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as TaskPriority })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+                          {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Depends on (optional)</Label>
+                        <select value={form.dependsOnTaskId} onChange={(e) => setForm({ ...form, dependsOnTaskId: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+                          <option value="">None</option>
+                          {tasks.filter((t) => t.id).map((t) => (
+                            <option key={t.id} value={t.id}>{t.title}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Tags (comma-separated)</Label>
+                      <Input value={form.tagsStr} onChange={(e) => setForm({ ...form, tagsStr: e.target.value })} placeholder="urgent, client-a" className="h-9" />
+                    </div>
                     <Button type="submit" className="w-full h-10">Create Task & Send Notify</Button>
                 </form>
               </div>
@@ -334,6 +448,13 @@ export default function TasksPage() {
                           <div><span className="text-muted-foreground mr-2">Status:</span> <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${statusConfig[selectedTask.status].color}`}>{selectedTask.status}</span></div>
                           <div><span className="text-muted-foreground mr-2">Type:</span> {selectedTask.taskKind === "daily" ? "Daily" : selectedTask.taskKind === "deadline_based" ? "Deadline-based" : "One-time"}</div>
                           <div><span className="text-muted-foreground mr-2">Category:</span> {selectedTask.category}</div>
+                          <div><span className="text-muted-foreground mr-2">Priority:</span> <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${priorityStyle[selectedTask.priority]}`}>{selectedTask.priority}</span></div>
+                          {selectedTask.tags?.length ? (
+                            <div><span className="text-muted-foreground mr-2">Tags:</span> {selectedTask.tags.join(", ")}</div>
+                          ) : null}
+                          {selectedTask.dependsOnTaskId ? (
+                            <div><span className="text-muted-foreground mr-2">Depends on:</span> {tasks.find((x) => x.id === selectedTask.dependsOnTaskId)?.title || selectedTask.dependsOnTaskId}</div>
+                          ) : null}
                           <div><span className="text-muted-foreground mr-2">Deadline:</span> {selectedTask.deadline}</div>
                           <div className="pt-4 border-t"><span className="block text-muted-foreground mb-1">Internal Notes:</span> <p className="text-xs italic text-muted-foreground">{selectedTask.notes || "No additional notes."}</p></div>
                       </div>

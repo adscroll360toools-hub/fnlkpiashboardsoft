@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { stagger, fadeUp } from "@/lib/animations";
 import { useAuth } from "@/context/AuthContext";
@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { KPIProgressBar } from "@/components/KPIProgressBar";
 import { LeaderboardWidget } from "@/components/LeaderboardWidget";
 import { TaskDashboard } from "@/components/TaskDashboard";
+import { isTaskAssignedTo } from "@/lib/taskHelpers";
 
 export default function EmployeeDashboard() {
     const { currentUser } = useAuth();
@@ -37,7 +38,18 @@ export default function EmployeeDashboard() {
         }
     };
 
-    const myTasks = tasks.filter(t => t.assigneeId === currentUser?.id);
+    const myTasks = tasks.filter((t) => currentUser?.id && isTaskAssignedTo(t, currentUser.id));
+
+    const weeklyCompleted = useMemo(() => {
+        const start = new Date();
+        start.setDate(start.getDate() - 7);
+        return myTasks.filter(
+            (t) =>
+                (t.status === "Completed" || t.status === "Approved") &&
+                t.createdAt &&
+                new Date(t.createdAt) >= start
+        ).length;
+    }, [myTasks]);
     
     const myKpis = kpis.filter(k => k.type === "Individual" && k.assignedToId === currentUser?.id);
     const avgMyProgress = myKpis.length > 0 ? 
@@ -63,6 +75,15 @@ export default function EmployeeDashboard() {
                 <StatCard title="Attendance" value={todayRecord?.status || "Not Checked In"} subtitle={todayRecord?.checkInTime ? `Checked in ${todayRecord.checkInTime}` : "No check-in yet"} icon={CalendarClock} variant="primary" />
                 <StatCard title="Overall Score" value={`${Math.floor(avgMyProgress)}%`} subtitle="Target progress" icon={Trophy} trend={{ value: "Rank evaluation active", positive: true }} />
                 <StatCard title="My Targets" value={myKpis.length.toString()} subtitle="Active targets" icon={Target} />
+            </motion.div>
+
+            <motion.div variants={fadeUp} className="rounded-2xl border bg-card p-4 shadow-card">
+                <h3 className="text-sm font-semibold text-foreground">Weekly performance snapshot</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                    Tasks marked completed or approved in the last 7 days (by created date):{" "}
+                    <span className="font-semibold text-foreground">{weeklyCompleted}</span>
+                    {" · "}Attendance today feeds future performance scoring.
+                </p>
             </motion.div>
 
             <div className="grid gap-6 lg:grid-cols-12">

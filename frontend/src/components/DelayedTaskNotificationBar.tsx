@@ -16,7 +16,13 @@ export function DelayedTaskNotificationBar({ scope }: { scope: Scope }) {
 
   const overdueTasks = useMemo(() => {
     let list = tasks.filter((t) => !isTaskCompleted(t) && isTaskOverdue(t));
-    if (scope === "self") list = list.filter((t) => t.assigneeId === currentUser?.id);
+    if (scope === "self" && currentUser?.id) {
+      list = list.filter(
+        (t) =>
+          t.assigneeId === currentUser.id ||
+          (Array.isArray(t.assigneeIds) && t.assigneeIds.includes(currentUser.id))
+      );
+    }
     return list;
   }, [tasks, scope, currentUser?.id]);
 

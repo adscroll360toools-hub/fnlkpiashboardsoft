@@ -2,7 +2,21 @@
 // Central API client that talks to the Express + MongoDB backend.
 // All data access goes through this module — no direct DB calls from the frontend.
 
-const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : 'https://kpiadscroll360.onrender.com');
+/** Avoid `https://host/api` + `/api/roles` → `/api/api/roles` (404 on the server). */
+function normalizeApiBaseUrl(base: string): string {
+  let b = (base || "").trim();
+  if (!b) return b;
+  b = b.replace(/\/+$/, "");
+  if (b.endsWith("/api")) {
+    b = b.slice(0, -4).replace(/\/+$/, "");
+  }
+  return b;
+}
+
+const BASE_URL = normalizeApiBaseUrl(
+  import.meta.env.VITE_API_URL ||
+    (import.meta.env.DEV ? "http://localhost:3001" : "https://kpiadscroll360.onrender.com")
+);
 
 async function request<T = unknown>(
   path: string,
@@ -75,6 +89,7 @@ export const api = {
     setStatus:  (id: string, status: string)                          => request<{ task: any }>(`/api/tasks/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
     submit:     (id: string, sub: Record<string, unknown>)            => request<{ task: any }>(`/api/tasks/${id}/submission`, { method: 'PATCH', body: JSON.stringify(sub) }),
     addMessage: (id: string, msg: Record<string, unknown>)            => request<{ task: any }>(`/api/tasks/${id}/messages`, { method: 'POST', body: JSON.stringify(msg) }),
+    patch:      (id: string, data: Record<string, unknown>)          => request<{ task: any }>(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     remove:     (id: string)                                          => request(`/api/tasks/${id}`, { method: 'DELETE' }),
   },
 
@@ -121,5 +136,19 @@ export const api = {
     create: (data: Record<string, unknown>)         => request<{ role: any }>('/api/roles', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, unknown>) => request<{ role: any }>(`/api/roles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     remove: (id: string)                             => request(`/api/roles/${id}`, { method: 'DELETE' }),
+  },
+
+  standups: {
+    list:   (params: Record<string, string>)        => request<{ standups: any[] }>(`/api/standups?${new URLSearchParams(params).toString()}`),
+    create: (data: Record<string, unknown>)         => request<{ standup: any }>('/api/standups', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, unknown>) => request<{ standup: any }>(`/api/standups/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    remove: (id: string)                           => request(`/api/standups/${id}`, { method: 'DELETE' }),
+  },
+
+  notes: {
+    list:   (params: Record<string, string>)        => request<{ notes: any[] }>(`/api/notes?${new URLSearchParams(params).toString()}`),
+    create: (data: Record<string, unknown>)         => request<{ note: any }>('/api/notes', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, unknown>) => request<{ note: any }>(`/api/notes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    remove: (id: string, userId: string)           => request(`/api/notes/${id}?userId=${encodeURIComponent(userId)}`, { method: 'DELETE' }),
   },
 };

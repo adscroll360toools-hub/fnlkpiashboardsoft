@@ -30,6 +30,7 @@ import KPITargetsPage from "./pages/admin/KPITargetsPage";
 import RewardsPage from "./pages/admin/RewardsPage";
 import SkillsPage from "./pages/admin/SkillsPage";
 import StandupsPage from "./pages/admin/StandupsPage";
+import NotesPage from "./pages/admin/NotesPage";
 import UserManagementPage from "./pages/admin/UserManagementPage";
 import RolesPage from "./pages/admin/RolesPage";
 import AttendanceControlPage from "./pages/admin/AttendanceControlPage";
@@ -110,6 +111,7 @@ function AppRoutes() {
           <Route path="/admin/rewards" element={<RewardsPage />} />
           <Route path="/admin/skills" element={<SkillsPage />} />
           <Route path="/admin/standups" element={<StandupsPage />} />
+          <Route path="/admin/notes" element={<NotesPage />} />
         </Route>
 
         {/* ── Controller portal ────────────────────────────────── */}
@@ -120,6 +122,7 @@ function AppRoutes() {
           <Route path="/controller/reports" element={<ReportsPage />} />
           <Route path="/controller/kpi" element={<KPITargetsPage />} />
           <Route path="/controller/standups" element={<StandupsPage />} />
+          <Route path="/controller/notes" element={<NotesPage />} />
           <Route path="/controller/settings" element={<PortalSettingsPage />} />
           <Route path="/controller/roles" element={<RolesPage />} />
         </Route>
@@ -130,6 +133,8 @@ function AppRoutes() {
           <Route path="/employee/tasks" element={<TasksPage />} />
           <Route path="/employee/attendance" element={<AttendancePage />} />
           <Route path="/employee/leaderboard" element={<LeaderboardPage />} />
+          <Route path="/employee/standups" element={<StandupsPage />} />
+          <Route path="/employee/notes" element={<NotesPage />} />
           <Route path="/employee/settings" element={<PortalSettingsPage />} />
         </Route>
 

@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   CheckCircle2, XCircle, AlertTriangle, Clock,
-  Calendar, Users, Edit3, Save, X, UserCheck
+  Calendar, Users, Edit3, Save, X, UserCheck, Coffee,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { stagger, fadeUp } from "@/lib/animations";
@@ -12,6 +12,7 @@ import { useAttendance, AttendanceStatus } from "@/context/AttendanceContext";
 
 const STATUS_OPTIONS: { value: AttendanceStatus; label: string; color: string; icon: React.ElementType }[] = [
   { value: "Present", label: "Present", color: "bg-green-500 hover:bg-green-600 text-white", icon: CheckCircle2 },
+  { value: "Break", label: "Break", color: "bg-blue-500 hover:bg-blue-600 text-white", icon: Coffee },
   { value: "Late",    label: "Late",    color: "bg-amber-500 hover:bg-amber-600 text-white", icon: AlertTriangle },
   { value: "Absent",  label: "Absent",  color: "bg-red-500 hover:bg-red-600 text-white",     icon: XCircle },
   { value: "Leave",   label: "Leave",   color: "bg-slate-500 hover:bg-slate-600 text-white", icon: Calendar },
@@ -63,12 +64,17 @@ export default function AttendanceControlPage() {
     }),
   [teamMembers, records, selectedDate]);
 
-  const stats = useMemo(() => ({
-    present: memberRows.filter((r) => r.status === "Present" || r.status === "Break").length,
-    late:    memberRows.filter((r) => r.status === "Late").length,
-    absent:  memberRows.filter((r) => r.status === "Absent").length,
-    noRecord: memberRows.filter((r) => r.status === "—").length,
-  }), [memberRows]);
+  const stats = useMemo(
+    () => ({
+      present: memberRows.filter((r) => r.status === "Present").length,
+      break: memberRows.filter((r) => r.status === "Break").length,
+      late: memberRows.filter((r) => r.status === "Late").length,
+      absent: memberRows.filter((r) => r.status === "Absent").length,
+      leave: memberRows.filter((r) => r.status === "Leave").length,
+      noRecord: memberRows.filter((r) => r.status === "—").length,
+    }),
+    [memberRows]
+  );
 
   const handleMarkStatus = async (userId: string, status: AttendanceStatus) => {
     setSaving(userId);
@@ -121,11 +127,13 @@ export default function AttendanceControlPage() {
       </motion.div>
 
       {/* Stats row */}
-      <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {[
           { label: "Present", count: stats.present, color: "text-green-600", bg: "bg-green-100 dark:bg-green-900/20" },
-          { label: "Late",    count: stats.late,    color: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-900/20" },
-          { label: "Absent",  count: stats.absent,  color: "text-red-600",   bg: "bg-red-100 dark:bg-red-900/20" },
+          { label: "Break", count: stats.break, color: "text-blue-600", bg: "bg-blue-100 dark:bg-blue-900/20" },
+          { label: "Late", count: stats.late, color: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-900/20" },
+          { label: "Absent", count: stats.absent, color: "text-red-600", bg: "bg-red-100 dark:bg-red-900/20" },
+          { label: "On Leave", count: stats.leave, color: "text-slate-600", bg: "bg-slate-100 dark:bg-slate-800/40" },
           { label: "No Record", count: stats.noRecord, color: "text-muted-foreground", bg: "bg-muted" },
         ].map(({ label, count, color, bg }) => (
           <div key={label} className="rounded-2xl bg-card p-4 shadow-sm border">

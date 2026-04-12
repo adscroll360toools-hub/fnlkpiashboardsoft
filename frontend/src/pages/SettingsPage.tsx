@@ -1,18 +1,20 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { stagger, fadeUp } from "@/lib/animations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Save, Bell, Shield, Clock, X } from "lucide-react";
+import { Save, Bell, Shield, Clock, X, UserCheck, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { useEffect } from "react";
+import { useAttendance } from "@/context/AttendanceContext";
 
 export default function SettingsPage() {
-  const { currentUser, updateUser, changePassword } = useAuth();
+  const { currentUser, users, updateUser, changePassword } = useAuth();
+  const { records } = useAttendance();
   const [notifications, setNotifications] = useState(true);
   const [dailyReminder, setDailyReminder] = useState(true);
   const [weeklyReport, setWeeklyReport] = useState(true);
@@ -57,6 +59,29 @@ export default function SettingsPage() {
     if (key === "weeklyReport") setWeeklyReport(val);
     toast.success(`${key === "notifications" ? "Push Notifications" : key === "dailyReminder" ? "Daily Reminder" : "Weekly Report"} ${val ? "enabled" : "disabled"}`);
   };
+
+  const todayYmd = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
+
+  const attendanceSnapshot = useMemo(() => {
+    if (currentUser?.role !== "admin") return null;
+    const team = users.filter((u) => u.role !== "admin");
+    const rows = team.map((u) => {
+      const rec = records.find((r) => r.userId === u.id && r.date === todayYmd);
+      return rec?.status || "—";
+    });
+    return {
+      present: rows.filter((s) => s === "Present").length,
+      brk: rows.filter((s) => s === "Break").length,
+      late: rows.filter((s) => s === "Late").length,
+      absent: rows.filter((s) => s === "Absent").length,
+      leave: rows.filter((s) => s === "Leave").length,
+      none: rows.filter((s) => s === "—").length,
+      total: team.length,
+    };
+  }, [currentUser?.role, users, records, todayYmd]);
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,6 +156,38 @@ export default function SettingsPage() {
             </Button>
           </div>
         </motion.div>
+
+        {currentUser?.role === "admin" && attendanceSnapshot && (
+          <motion.div variants={fadeUp} className="rounded-2xl bg-card p-6 shadow-card border border-border">
+            <div className="flex items-center gap-2 mb-3">
+              <UserCheck className="h-4 w-4 text-primary" />
+              <h2 className="text-base font-semibold text-foreground">Company attendance (today)</h2>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Admin-only summary. Employees see attendance on their own pages; editing is restricted to attendance control.
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 text-center">
+              {[
+                { label: "Present", v: attendanceSnapshot.present, c: "text-green-600" },
+                { label: "Break", v: attendanceSnapshot.brk, c: "text-blue-600" },
+                { label: "Late", v: attendanceSnapshot.late, c: "text-amber-600" },
+                { label: "Absent", v: attendanceSnapshot.absent, c: "text-red-600" },
+                { label: "On leave", v: attendanceSnapshot.leave, c: "text-slate-600" },
+                { label: "No record", v: attendanceSnapshot.none, c: "text-muted-foreground" },
+              ].map((x) => (
+                <div key={x.label} className="rounded-xl bg-muted/40 py-3">
+                  <p className={`text-xl font-bold ${x.c}`}>{x.v}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{x.label}</p>
+                </div>
+              ))}
+            </div>
+            <Button asChild variant="outline" className="mt-4 w-full sm:w-auto gap-2">
+              <Link to="/admin/attendance-control">
+                Open attendance control <ChevronRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </motion.div>
+        )}
 
         {/* Notifications */}
         <motion.div variants={fadeUp} className="rounded-2xl bg-card p-6 shadow-card space-y-4">

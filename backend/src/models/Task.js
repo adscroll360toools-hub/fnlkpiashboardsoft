@@ -42,6 +42,18 @@ const taskSchema = new mongoose.Schema(
     },
     deadline: { type: String },
     timeSpent: { type: String },
+    priority: {
+      type: String,
+      enum: ['Low', 'Medium', 'High'],
+      default: 'Medium',
+    },
+    tags: { type: [String], default: [] },
+    assigneeIds: { type: [String], default: [] },
+    dependsOnTaskId: { type: String, default: null },
+    recurring: {
+      enabled: { type: Boolean, default: false },
+      rule: { type: String, default: '' },
+    },
     notes: { type: String },
     messages: [taskMessageSchema],
     submission: taskSubmissionSchema,

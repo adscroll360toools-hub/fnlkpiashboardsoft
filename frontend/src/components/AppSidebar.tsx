@@ -9,6 +9,7 @@ import {
   Gift,
   BookOpen,
   MessageSquare,
+  StickyNote,
   LogOut,
   UserCog,
   UserCheck,
@@ -48,6 +49,7 @@ const adminNav = [
   { title: "Rewards", url: "/admin/rewards", icon: Gift },
   { title: "Skill Growth", url: "/admin/skills", icon: BookOpen },
   { title: "Standups", url: "/admin/standups", icon: MessageSquare },
+  { title: "Notes", url: "/admin/notes", icon: StickyNote },
 ];
 
 export function AppSidebar() {

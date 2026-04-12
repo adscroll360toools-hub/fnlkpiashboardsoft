@@ -18,6 +18,8 @@ import kpisRouter from './routes/kpis.js';
 import superAdminRouter from './routes/superAdmin.js';
 import notificationsRouter from './routes/notifications.js';
 import rolesRouter from './routes/roles.js';
+import standupsRouter from './routes/standups.js';
+import notesRouter from './routes/notes.js';
 
 // ── Connect to MongoDB ─────────────────────────────────────
 await connectDB();
@@ -60,6 +62,8 @@ app.use('/api/kpis',         kpisRouter);
 app.use('/api/super-admin',  superAdminRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/roles',           rolesRouter);
+app.use('/api/standups',       standupsRouter);
+app.use('/api/notes',          notesRouter);
 
 // ── 404 Handler ────────────────────────────────────────────
 app.use((_req, res) => {

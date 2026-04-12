@@ -53,8 +53,13 @@ export function endOfToday(): Date {
   return d;
 }
 
+export function isTaskAssignedTo(t: AppTask, userId: string): boolean {
+  if (t.assigneeId === userId) return true;
+  return Array.isArray(t.assigneeIds) && t.assigneeIds.includes(userId);
+}
+
 export function visibleTasksForUser(tasks: AppTask[], userId: string | undefined, scope: "self" | "company"): AppTask[] {
   if (!userId) return [];
   if (scope === "company") return tasks;
-  return tasks.filter((t) => t.assigneeId === userId);
+  return tasks.filter((t) => isTaskAssignedTo(t, userId));
 }

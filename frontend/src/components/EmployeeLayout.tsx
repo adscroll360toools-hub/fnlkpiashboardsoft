@@ -4,12 +4,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { useNotification } from "@/context/NotificationContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { LayoutDashboard, ClipboardCheck, CalendarClock, Trophy, Settings, LogOut, Bell, X, CheckCheck, Menu } from "lucide-react";
+import { LayoutDashboard, ClipboardCheck, CalendarClock, Trophy, Settings, LogOut, Bell, X, CheckCheck, Menu, MessageSquare, StickyNote } from "lucide-react";
 import { DelayedTaskNotificationBar } from "@/components/DelayedTaskNotificationBar";
 
 const navItems = [
     { label: "Dashboard", to: "/employee/dashboard", icon: LayoutDashboard },
     { label: "My Tasks", to: "/employee/tasks", icon: ClipboardCheck },
+    { label: "Standups", to: "/employee/standups", icon: MessageSquare },
+    { label: "Notes", to: "/employee/notes", icon: StickyNote },
     { label: "Attendance", to: "/employee/attendance", icon: CalendarClock },
     { label: "Leaderboard", to: "/employee/leaderboard", icon: Trophy },
     { label: "Settings", to: "/employee/settings", icon: Settings },

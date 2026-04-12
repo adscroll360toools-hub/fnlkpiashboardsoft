@@ -176,6 +176,34 @@ router.post('/:id/messages', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+const TASK_PATCH_KEYS = [
+  'title', 'category', 'assigneeId', 'assigneeName', 'assigneeIds', 'assignedById', 'assignedByName',
+  'kpiRelationId', 'kpiRelationName', 'type', 'taskKind', 'deadlineAt', 'status', 'deadline', 'timeSpent', 'notes',
+  'priority', 'tags', 'dependsOnTaskId', 'recurring',
+];
+
+/** PATCH /api/tasks/:id — partial update (priority, tags, dependency, etc.) */
+router.patch('/:id', async (req, res, next) => {
+  try {
+    const { companyId, ...body } = req.body;
+    if (!companyId) return res.status(400).json({ error: 'companyId is required' });
+    const updates = {};
+    for (const k of TASK_PATCH_KEYS) {
+      if (body[k] !== undefined) updates[k] = body[k];
+    }
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+    const task = await Task.findOneAndUpdate(
+      { _id: req.params.id, companyId },
+      { $set: updates },
+      { new: true }
+    );
+    if (!task) return res.status(404).json({ error: 'Task not found or unauthorized' });
+    res.json({ task });
+  } catch (err) { next(err); }
+});
+
 /** DELETE /api/tasks/:id */
 router.delete('/:id', async (req, res, next) => {
   try {
