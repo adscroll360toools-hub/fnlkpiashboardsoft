@@ -56,6 +56,15 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Root URL (Render/uptime/browser often hit `/` — API lives under `/api`)
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    ok: true,
+    service: 'zaptiz-api',
+    health: '/api/health',
+  });
+});
+
 // ── Routes ─────────────────────────────────────────────────
 app.use('/api/health',       healthRouter);
 app.use('/api/users',        usersRouter);
