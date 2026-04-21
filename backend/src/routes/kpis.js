@@ -1,11 +1,11 @@
 // backend/src/routes/kpis.js
 import { Router } from 'express';
 import KPI from '../models/KPI.js';
-import { canManageKpi, resolveActor } from '../utils/companyPermissions.js';
+import { canManageKpi, canViewCompanyKpis, resolveActor } from '../utils/companyPermissions.js';
 
 const router = Router();
 
-/** Controllers only see KPI rows scoped to them (and optional employee subset). */
+/** Controllers only manage KPI rows scoped to them (PATCH/DELETE); list GET is company-wide for leaderboards. */
 function kpiVisibleToController(k, controllerId) {
   const cid = String(controllerId);
   if (!k.managedByControllerId || String(k.managedByControllerId) !== cid) return false;
@@ -15,19 +15,15 @@ function kpiVisibleToController(k, controllerId) {
   return !!k.assignedToId && ids.includes(String(k.assignedToId));
 }
 
-/** GET /api/kpis (requires companyId) */
+/** GET /api/kpis (requires companyId) — full company list for all roles (leaderboard parity). */
 router.get('/', async (req, res, next) => {
   try {
     const { companyId, actorUserId } = req.query;
     if (!companyId || !actorUserId) return res.status(400).json({ error: 'companyId and actorUserId are required' });
     const actor = await resolveActor(companyId, actorUserId);
-    if (!canManageKpi(actor)) return res.status(403).json({ error: 'KPI access denied' });
+    if (!canViewCompanyKpis(actor)) return res.status(403).json({ error: 'KPI access denied' });
 
-    let kpis = await KPI.find({ companyId }).sort({ created_at: -1 });
-    if (actor?.user?.role === 'controller') {
-      const controllerId = String(actor.user._id);
-      kpis = kpis.filter((k) => kpiVisibleToController(k, controllerId));
-    }
+    const kpis = await KPI.find({ companyId }).sort({ created_at: -1 });
     res.json({ kpis });
   } catch (err) { next(err); }
 });

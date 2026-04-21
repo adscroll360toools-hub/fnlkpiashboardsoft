@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useAttendance, AttendanceStatus } from "@/context/AttendanceContext";
 import { getEffectivePermissions } from "@/lib/permissions";
+import { companyOperationalTeam } from "@/lib/companyTeam";
 
 // Types
 type MyAttendanceState = "not-checked-in" | "checked-in" | "on-break" | "checked-out";
@@ -110,8 +111,8 @@ export default function AttendancePage() {
   const clockColor = state === "on-break" ? "text-amber-600" : state === "checked-in" ? "text-green-600" : "text-muted-foreground";
   const clockBg = state === "on-break" ? "bg-amber-500/20" : state === "checked-in" ? "bg-green-500/20" : "bg-muted-foreground/10";
 
-  // Team stats logic for admin/controller
-  const teamMembers = users.filter((u) => u.role !== "admin");
+  // Team stats: employees + controllers only (not admins)
+  const teamMembers = companyOperationalTeam(users);
 
   const filteredTeamRecords = useMemo(() => {
     return teamMembers.flatMap(u => {

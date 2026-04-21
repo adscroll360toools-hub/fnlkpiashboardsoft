@@ -47,6 +47,8 @@ export interface AppTask {
     recurring?: { enabled: boolean; rule: string };
     notes?: string;
     createdAt: string;
+    /** Last update from server (e.g. status → Approved) when submission.submittedAt is missing */
+    updatedAt?: string;
     messages: TaskMessage[];
     submission?: TaskSubmission;
 }
@@ -94,6 +96,7 @@ function mapTask(t: any): AppTask {
         recurring: t.recurring || { enabled: false, rule: "" },
         notes: t.notes,
         createdAt: t.created_at || t.createdAt,
+        updatedAt: t.updated_at || t.updatedAt,
         messages: t.messages || [],
         submission: t.submission,
     };

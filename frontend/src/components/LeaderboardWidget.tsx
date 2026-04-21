@@ -2,8 +2,16 @@ import { useState, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useKPI } from "@/context/KPIContext";
 import { useTask } from "@/context/TaskContext";
+import type { AppTask } from "@/context/TaskContext";
 import { isTaskAssignedTo } from "@/lib/taskHelpers";
+import { companyOperationalTeam } from "@/lib/companyTeam";
 import { motion, AnimatePresence } from "framer-motion";
+
+function taskResolvedAtMs(t: AppTask): number {
+    if (t.submission?.submittedAt) return new Date(t.submission.submittedAt).getTime();
+    if (t.updatedAt) return new Date(t.updatedAt).getTime();
+    return new Date(t.createdAt).getTime();
+}
 
 type LeaderboardPeriod = "Weekly" | "Monthly" | "Yearly";
 
@@ -14,11 +22,10 @@ export function LeaderboardWidget() {
     
     const [period, setPeriod] = useState<LeaderboardPeriod>("Weekly");
 
+    const teamMembers = useMemo(() => companyOperationalTeam(users), [users]);
+
     const leaderboard = useMemo(() => {
-        const employees = users.filter(u => u.role === "employee");
-        
         let startPeriodDate = new Date();
-        const now = new Date();
         
         if (period === "Weekly") {
             // Monday to Saturday. (Actually just 7 days dynamically or week start)
@@ -34,9 +41,9 @@ export function LeaderboardWidget() {
             startPeriodDate.setHours(0,0,0,0);
         }
 
-        const data = employees.map(emp => {
-            // Find Personal KPIs for this period
-            const myKPIs = kpis.filter(k => k.type === "Individual" && k.assignedToId === emp.id && new Date(k.createdAt) >= startPeriodDate);
+        const data = teamMembers.map((emp) => {
+            // Individual KPIs assigned to this person (current progress vs target)
+            const myKPIs = kpis.filter((k) => k.type === "Individual" && k.assignedToId === emp.id);
             
             // Calculate average KPI %
             let totalKPIPercent = 0;
@@ -52,8 +59,7 @@ export function LeaderboardWidget() {
                 (t) =>
                     isTaskAssignedTo(t, emp.id) &&
                     (t.status === "Completed" || t.status === "Approved") &&
-                    t.submission &&
-                    new Date(t.submission.submittedAt) >= startPeriodDate
+                    taskResolvedAtMs(t) >= startPeriodDate.getTime()
             );
 
             // Productivity Score: 70% KPI + 30% tasks logic (Assuming 5 tasks is 100% productivity for weekly to mock it, or just use tasks counted)
@@ -72,7 +78,7 @@ export function LeaderboardWidget() {
 
         // Sort by rank score descending
         return data.sort((a, b) => b.sortScore - a.sortScore).map((d, i) => ({ ...d, rank: i + 1 }));
-    }, [users, kpis, tasks, period]);
+    }, [teamMembers, kpis, tasks, period]);
 
     const getBadge = (rank: number) => {
         if (rank === 1) return { icon: "🥇", class: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200" };
@@ -99,7 +105,7 @@ export function LeaderboardWidget() {
                     <thead>
                         <tr className="border-b bg-muted/20">
                             <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground w-16">Rank</th>
-                            <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Employee</th>
+                            <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Team member</th>
                             <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">KPI Score</th>
                             <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden sm:table-cell">Tasks</th>
                         </tr>

@@ -19,6 +19,7 @@ import { useTask } from "@/context/TaskContext";
 import { useAttendance } from "@/context/AttendanceContext";
 import { useMemo } from "react";
 import { getEffectivePermissions } from "@/lib/permissions";
+import { companyOperationalTeam } from "@/lib/companyTeam";
 
 /* ─── Types ─────────────────────────────────────────────────── */
 interface AttendanceRow {
@@ -102,7 +103,7 @@ export default function ReportsPage() {
   const todayStr = useMemo(() => ymdLocal(new Date()), []);
 
   const todayAttendance = useMemo<AttendanceRow[]>(() => {
-    return users.filter((u) => u.role !== "admin" && u.role !== "super_admin").map((u) => {
+    return companyOperationalTeam(users).map((u) => {
       const rec = records.find((r) => r.userId === u.id && r.date === todayStr);
       const userTasks = taskCountsForUserOnDay(tasks, u.id, todayStr);
 

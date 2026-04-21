@@ -9,6 +9,7 @@ import { stagger, fadeUp } from "@/lib/animations";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useAttendance, AttendanceStatus } from "@/context/AttendanceContext";
+import { companyOperationalTeam } from "@/lib/companyTeam";
 
 const STATUS_OPTIONS: { value: AttendanceStatus; label: string; color: string; icon: React.ElementType }[] = [
   { value: "Present", label: "Present", color: "bg-green-500 hover:bg-green-600 text-white", icon: CheckCircle2 },
@@ -46,7 +47,7 @@ export default function AttendanceControlPage() {
   const [editState, setEditState] = useState<EditState | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
 
-  const teamMembers = users.filter((u) => u.role !== "admin");
+  const teamMembers = companyOperationalTeam(users);
 
   const memberRows = useMemo(() =>
     teamMembers.map((u) => {

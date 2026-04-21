@@ -7,11 +7,20 @@ import { Label } from "@/components/ui/label";
 import { KPIProgressBar } from "@/components/KPIProgressBar";
 import { Target, Plus, Edit, X, Save, Users, Building, User, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { useKPI, KPIType, QualityMetric } from "@/context/KPIContext";
+import { useKPI, KPIType, QualityMetric, type AppKPI } from "@/context/KPIContext";
 import { useAuth } from "@/context/AuthContext";
 import { getEffectivePermissions } from "@/lib/permissions";
 
 const DEPARTMENTS = ["Content", "Design", "Management", "Marketing", "Video", "Analytics"];
+
+/** Same rules as backend: controller KPI page only lists rows scoped to them. */
+function kpiVisibleToControllerRow(k: AppKPI, controllerId: string): boolean {
+  if (!k.managedByControllerId || k.managedByControllerId !== controllerId) return false;
+  if (k.type !== "Individual") return true;
+  const ids = (k.managedEmployeeIds ?? []).map(String);
+  if (ids.length === 0) return true;
+  return !!k.assignedToId && ids.includes(String(k.assignedToId));
+}
 
 const emptyForm = { 
   title: "", 
@@ -48,10 +57,17 @@ export default function KPITargetsPage() {
   const canDeleteKpi = isAdmin || (isController && perms.kpi_manage);
   const teamForKpi = users.filter(u => u.role === "employee" || u.role === "controller");
 
+  const kpisForRole = useMemo(() => {
+    if (currentUser?.role === "controller" && currentUser.id) {
+      return kpis.filter((k) => kpiVisibleToControllerRow(k, currentUser.id));
+    }
+    return kpis;
+  }, [kpis, currentUser?.role, currentUser?.id]);
+
   const filteredKpis = useMemo(() => {
     if (activeTab === "Scoring") return [];
-    return kpis.filter(k => k.type === activeTab);
-  }, [kpis, activeTab]);
+    return kpisForRole.filter((k) => k.type === activeTab);
+  }, [kpisForRole, activeTab]);
 
   const openAdd = () => {
     setForm({ ...emptyForm, type: activeTab === "Scoring" ? "Company" : (activeTab as KPIType) });
@@ -69,7 +85,7 @@ export default function KPITargetsPage() {
     const assignedUser = teamForKpi.find(u => u.id === form.assignedToId);
     
     const managedByControllerId = isAdmin
-      ? form.controllerScopeId || currentUser?.id
+      ? form.controllerScopeId || undefined
       : currentUser?.id;
 
     const res = await createKPI({

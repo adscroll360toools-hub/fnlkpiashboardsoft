@@ -32,6 +32,13 @@ export function canManageKpi(actor) {
   return !!actor.permissions?.kpi_manage;
 }
 
+/** Read company KPI list (leaderboards, dashboards). Mutations still use canManageKpi. */
+export function canViewCompanyKpis(actor) {
+  if (!actor?.user) return false;
+  const r = actor.user.role;
+  return r === 'admin' || r === 'controller' || r === 'employee';
+}
+
 export function canEditCompanySettings(actor) {
   if (!actor?.user) return false;
   return actor.user.role === 'admin' || actor.user.role === 'super_admin';
