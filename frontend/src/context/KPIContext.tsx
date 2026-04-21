@@ -122,15 +122,18 @@ export function KPIProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (!currentUser || !currentUser.companyId) return;
-        api.kpis.list(currentUser.companyId)
+        api.kpis.list(currentUser.companyId, currentUser.id)
             .then(({ kpis }) => setKPIs(kpis.map(mapKPI)))
-            .catch(err => console.error("Error fetching KPIs:", err));
+            .catch(err => {
+                console.error("Error fetching KPIs:", err);
+                setKPIs([]);
+            });
     }, [currentUser?.id, currentUser?.companyId]);
 
     const createKPI = async (k: Omit<AppKPI, "id" | "createdAt" | "current">) => {
         if (!currentUser?.companyId) return { success: false, error: "Missing company context" };
         try {
-            const { kpi } = await api.kpis.create({ ...k, companyId: currentUser.companyId } as any);
+            const { kpi } = await api.kpis.create({ ...k, companyId: currentUser.companyId, actorUserId: currentUser.id } as any);
             setKPIs(prev => [...prev, mapKPI(kpi)]);
             return { success: true };
         } catch (err: any) {
@@ -141,7 +144,7 @@ export function KPIProvider({ children }: { children: ReactNode }) {
     const updateKPIProgress = async (kpiId: string, currentVal: number) => {
         if (!currentUser?.companyId) return { success: false, error: "Missing company" };
         try {
-            await api.kpis.updateProgress(kpiId, currentVal, currentUser.companyId);
+            await api.kpis.updateProgress(kpiId, currentVal, currentUser.companyId, currentUser.id);
             setKPIs(prev => prev.map(k => k.id === kpiId ? { ...k, current: currentVal } : k));
             return { success: true };
         } catch (err: any) {
@@ -156,7 +159,7 @@ export function KPIProvider({ children }: { children: ReactNode }) {
             return { success: false, error: "You do not have permission to delete KPIs" };
         }
         try {
-            await api.kpis.remove(kpiId, currentUser.companyId);
+            await api.kpis.remove(kpiId, currentUser.companyId, currentUser.id);
             setKPIs(prev => prev.filter(k => k.id !== kpiId));
             return { success: true };
         } catch (err: any) {

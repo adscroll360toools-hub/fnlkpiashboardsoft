@@ -18,6 +18,14 @@ const defaultAttendanceSettings = {
   workEnd: "18:00",
   lateAfterMinutes: 15,
   absentIfNoCheckInBy: "10:30",
+  resetDay: "Sunday",
+  statusWindows: {
+    present: { start: "00:00", end: "09:15" },
+    late: { start: "09:16", end: "10:29" },
+    absent: { start: "10:30", end: "23:59" },
+    leave: { start: "00:00", end: "23:59" },
+    break: { start: "00:00", end: "23:59" },
+  },
 };
 
 export default function SettingsPage() {
@@ -85,7 +93,7 @@ export default function SettingsPage() {
   const handleSaveAttendanceRules = async () => {
     if (!currentUser?.companyId || currentUser.role !== "admin") return;
     try {
-      await api.tenantCompany.patch(currentUser.companyId, { attendanceSettings });
+      await api.tenantCompany.patch(currentUser.companyId, { attendanceSettings, actorUserId: currentUser.id });
       toast.success("Attendance rules saved", { description: "Used for dashboards and future check-in logic." });
     } catch (e: any) {
       toast.error(e?.message || "Could not save attendance rules");
@@ -277,6 +285,55 @@ export default function SettingsPage() {
                   className="h-11 rounded-lg border-0 bg-muted text-sm"
                 />
               </div>
+              <div className="space-y-2">
+                <Label>Leaderboard reset day</Label>
+                <select
+                  value={attendanceSettings.resetDay}
+                  onChange={(e) => setAttendanceSettings((s) => ({ ...s, resetDay: e.target.value }))}
+                  className="h-11 w-full rounded-lg border-0 bg-muted px-3 text-sm"
+                >
+                  {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {(["present", "late", "absent", "leave", "break"] as const).map((k) => (
+                <div key={k} className="rounded-lg border bg-muted/30 p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{k} window</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="time"
+                      value={attendanceSettings.statusWindows?.[k]?.start || "00:00"}
+                      onChange={(e) =>
+                        setAttendanceSettings((s) => ({
+                          ...s,
+                          statusWindows: {
+                            ...(s.statusWindows || defaultAttendanceSettings.statusWindows),
+                            [k]: { ...(s.statusWindows?.[k] || { start: "00:00", end: "23:59" }), start: e.target.value },
+                          },
+                        }))
+                      }
+                      className="h-9 rounded-md border-input bg-background text-xs"
+                    />
+                    <Input
+                      type="time"
+                      value={attendanceSettings.statusWindows?.[k]?.end || "23:59"}
+                      onChange={(e) =>
+                        setAttendanceSettings((s) => ({
+                          ...s,
+                          statusWindows: {
+                            ...(s.statusWindows || defaultAttendanceSettings.statusWindows),
+                            [k]: { ...(s.statusWindows?.[k] || { start: "00:00", end: "23:59" }), end: e.target.value },
+                          },
+                        }))
+                      }
+                      className="h-9 rounded-md border-input bg-background text-xs"
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
             <Button type="button" className="mt-4 h-10 gap-2" onClick={handleSaveAttendanceRules}>
               <Save className="h-4 w-4" /> Save attendance rules

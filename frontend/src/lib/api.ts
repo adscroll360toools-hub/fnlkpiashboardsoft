@@ -108,12 +108,12 @@ export const api = {
   },
 
   kpis: {
-    list:           (companyId: string)                       => request<{ kpis: any[] }>(`/api/kpis?companyId=${companyId}`),
+    list:           (companyId: string, actorUserId: string)  => request<{ kpis: any[] }>(`/api/kpis?companyId=${companyId}&actorUserId=${encodeURIComponent(actorUserId)}`),
     create:         (data: Record<string, unknown>)           => request<{ kpi: any }>('/api/kpis', { method: 'POST', body: JSON.stringify(data) }),
-    updateProgress: (id: string, current: number, companyId: string) =>
-      request<{ kpi: any }>(`/api/kpis/${id}/progress`, { method: 'PATCH', body: JSON.stringify({ current, companyId }) }),
-    remove:         (id: string, companyId: string)           =>
-      request(`/api/kpis/${id}?companyId=${encodeURIComponent(companyId)}`, { method: 'DELETE' }),
+    updateProgress: (id: string, current: number, companyId: string, actorUserId: string) =>
+      request<{ kpi: any }>(`/api/kpis/${id}/progress`, { method: 'PATCH', body: JSON.stringify({ current, companyId, actorUserId }) }),
+    remove:         (id: string, companyId: string, actorUserId: string) =>
+      request(`/api/kpis/${id}?companyId=${encodeURIComponent(companyId)}&actorUserId=${encodeURIComponent(actorUserId)}`, { method: 'DELETE' }),
   },
 
   superAdmin: {
@@ -130,8 +130,11 @@ export const api = {
   },
 
   notifications: {
-    list:   (companyId: string)                     => request<{ notifications: any[] }>(`/api/notifications?companyId=${companyId}`),
+    list:   (companyId: string, userId: string)      => request<{ notifications: any[]; unreadCount: number }>(`/api/notifications?companyId=${companyId}&userId=${encodeURIComponent(userId)}`),
     create: (data: Record<string, unknown>)         => request<{ notification: any }>('/api/notifications', { method: 'POST', body: JSON.stringify(data) }),
+    markRead: (id: string, data: Record<string, unknown>) => request<{ notification: any }>(`/api/notifications/${id}/read`, { method: 'PATCH', body: JSON.stringify(data) }),
+    markAllRead: (data: Record<string, unknown>) => request('/api/notifications/read-all', { method: 'POST', body: JSON.stringify(data) }),
+    clearAll: (companyId: string) => request(`/api/notifications/clear-all?companyId=${encodeURIComponent(companyId)}`, { method: 'DELETE' }),
   },
 
   roles: {

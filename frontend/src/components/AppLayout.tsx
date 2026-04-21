@@ -25,8 +25,7 @@ export function AppLayout() {
   const { currentUser } = useAuth();
   const { tasks } = useTask();
   const { breakRequests } = useAttendance();
-  const { notifications } = useNotification();
-  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const { notifications, unreadCount, markAsRead, markAllRead, clearAll } = useNotification();
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -115,11 +114,9 @@ export function AppLayout() {
 
     return items
       .filter((n) => !dismissedIds.has(n.id))
-      .map((n) => ({ ...n, read: readIds.has(n.id) }))
+      .map((n) => ({ ...n, read: !!n.read }))
       .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime() || 0); // basic sort
-  }, [tasks, breakRequests, notifications, readIds, dismissedIds]);
-
-  const unreadCount = liveNotifications.filter((n) => !n.read).length;
+  }, [tasks, breakRequests, notifications, dismissedIds]);
 
   // Close on outside click
   useEffect(() => {
@@ -132,16 +129,8 @@ export function AppLayout() {
     return () => document.removeEventListener("mousedown", handler);
   }, [notifOpen]);
 
-  const markAllRead = () => {
-    setReadIds(new Set(liveNotifications.map((n) => n.id)));
-  };
-
   const dismiss = (id: string) => {
     setDismissedIds((prev) => new Set([...prev, id]));
-  };
-
-  const markRead = (id: string) => {
-    setReadIds((prev) => new Set([...prev, id]));
   };
 
   return (
@@ -169,7 +158,7 @@ export function AppLayout() {
                   id="notification-bell"
                   onClick={() => {
                     setNotifOpen((v) => !v);
-                    if (!notifOpen) markAllRead(); // mark unread as read when opened
+                    if (!notifOpen) markAllRead();
                   }}
                   className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   aria-label="Notifications"
@@ -225,7 +214,11 @@ export function AppLayout() {
                             return (
                               <div
                                 key={notif.id}
-                                onClick={() => markRead(notif.id)}
+                                onClick={() => {
+                                  if (notif.id.startsWith("global-notif-")) {
+                                    markAsRead(notif.id.replace("global-notif-", ""));
+                                  }
+                                }}
                                 className={`group relative flex gap-3 px-4 py-3 transition-colors cursor-pointer hover:bg-muted/50 ${!notif.read ? "bg-primary/[0.03]" : ""
                                   }`}
                               >
@@ -262,7 +255,10 @@ export function AppLayout() {
                       {liveNotifications.length > 0 && (
                         <div className="border-t px-4 py-2.5 text-center">
                           <button
-                            onClick={() => setDismissedIds(new Set([...dismissedIds, ...liveNotifications.map(n => n.id)]))}
+                            onClick={() => {
+                              clearAll();
+                              setDismissedIds(new Set([...dismissedIds, ...liveNotifications.map((n) => n.id)]));
+                            }}
                             className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                           >
                             Clear all notifications

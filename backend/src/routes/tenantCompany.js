@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import Company from '../models/Company.js';
+import { canEditCompanySettings, resolveActor } from '../utils/companyPermissions.js';
 
 const router = Router();
 
@@ -19,6 +20,12 @@ router.get('/', async (req, res, next) => {
 /** PATCH /api/tenant-company/:companyId — attendanceSettings etc. */
 router.patch('/:companyId', async (req, res, next) => {
   try {
+    const { actorUserId } = req.body;
+    if (!actorUserId) return res.status(400).json({ error: 'actorUserId is required' });
+    const actor = await resolveActor(req.params.companyId, actorUserId);
+    if (!canEditCompanySettings(actor)) {
+      return res.status(403).json({ error: 'Only company admin can edit company settings' });
+    }
     const allowed = ['attendanceSettings', 'name', 'industry', 'website'];
     const updates = {};
     for (const k of allowed) {

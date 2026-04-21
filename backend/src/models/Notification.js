@@ -2,8 +2,7 @@ import mongoose from 'mongoose';
 
 const notificationSchema = new mongoose.Schema({
   companyId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Company',
+    type: String,
     required: true,
   },
   type: {
@@ -20,13 +19,16 @@ const notificationSchema = new mongoose.Schema({
     required: true,
   },
   senderId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    type: String,
     required: true,
   },
   senderName: {
     type: String,
     required: true,
+  },
+  readByUserIds: {
+    type: [String],
+    default: [],
   },
 }, { timestamps: true });
 

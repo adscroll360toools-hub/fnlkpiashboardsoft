@@ -2,6 +2,8 @@
 import { Router } from 'express';
 import Attendance from '../models/Attendance.js';
 import BreakRequest from '../models/BreakRequest.js';
+import Company from '../models/Company.js';
+import { mergeAttendanceSettings, statusFromCheckInTime } from '../utils/attendanceRules.js';
 
 const router = Router();
 
@@ -21,10 +23,13 @@ router.post('/checkin', async (req, res, next) => {
   try {
     const { userId, date, checkInTime, status, companyId } = req.body;
     if (!companyId) return res.status(400).json({ error: 'companyId is required' });
+    const company = await Company.findById(companyId).select('attendanceSettings').lean();
+    const settings = mergeAttendanceSettings(company?.attendanceSettings);
+    const computed = statusFromCheckInTime(checkInTime, settings);
 
     const record = await Attendance.findOneAndUpdate(
       { userId, date },
-      { $set: { checkInTime, status, companyId } },
+      { $set: { checkInTime, status: status || computed, companyId } },
       { upsert: true, new: true }
     );
     res.json({ record });
@@ -65,10 +70,13 @@ router.post('/upsert', async (req, res, next) => {
   try {
     const { userId, date, status, checkInTime, checkOutTime, breakStartTime, breakEndTime, companyId } = req.body;
     if (!companyId) return res.status(400).json({ error: 'companyId is required' });
+    const company = await Company.findById(companyId).select('attendanceSettings').lean();
+    const settings = mergeAttendanceSettings(company?.attendanceSettings);
+    const computed = checkInTime ? statusFromCheckInTime(checkInTime, settings) : '—';
 
     const record = await Attendance.findOneAndUpdate(
       { userId, date },
-      { $set: { status, checkInTime, checkOutTime, breakStartTime, breakEndTime, companyId } },
+      { $set: { status: status || computed, checkInTime, checkOutTime, breakStartTime, breakEndTime, companyId } },
       { upsert: true, new: true }
     );
     res.json({ record });

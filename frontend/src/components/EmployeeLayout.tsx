@@ -23,7 +23,7 @@ const NOTIFICATIONS = [
 
 export function EmployeeLayout() {
     const { currentUser, logout } = useAuth();
-    const { notifications: globalNotifications } = useNotification();
+    const { notifications: globalNotifications, unreadCount, markAsRead, markAllRead, clearAll } = useNotification();
     const navigate = useNavigate();
     const [notifOpen, setNotifOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -38,6 +38,7 @@ export function EmployeeLayout() {
             title: n.title,
             desc: n.message,
             time: new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            read: n.read,
             icon: Bell,
             color: n.type === 'Meeting' ? 'text-blue-600 bg-blue-100' : 'text-purple-600 bg-purple-100'
         }))
@@ -107,9 +108,9 @@ export function EmployeeLayout() {
                                 className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
                             >
                                 <Bell className="h-[18px] w-[18px]" />
-                                {notifications.length > 0 && (
+                                {unreadCount > 0 && (
                                     <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600 text-[9px] font-bold text-white">
-                                        {notifications.length}
+                                        {unreadCount}
                                     </span>
                                 )}
                             </button>
@@ -124,7 +125,10 @@ export function EmployeeLayout() {
                                     >
                                         <div className="flex items-center justify-between border-b px-4 py-3">
                                             <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
-                                            <button onClick={() => setDismissedNotifIds(new Set([...dismissedNotifIds, ...notifications.map(n => n.id)]))} className="text-[11px] text-primary hover:underline">Clear all</button>
+                                            <div className="flex items-center gap-2">
+                                                <button onClick={() => markAllRead()} className="text-[11px] text-primary hover:underline">Mark as Read</button>
+                                                <button onClick={() => { clearAll(); setDismissedNotifIds(new Set()); }} className="text-[11px] text-muted-foreground hover:underline">Clear All</button>
+                                            </div>
                                         </div>
                                         <div className="divide-y">
                                             {notifications.length === 0
@@ -132,7 +136,7 @@ export function EmployeeLayout() {
                                                 : notifications.map((n) => {
                                                     const Icon = n.icon;
                                                     return (
-                                                        <div key={n.id} className="flex gap-3 px-4 py-3 hover:bg-muted/50 group cursor-pointer">
+                                                        <div key={n.id} className={`flex gap-3 px-4 py-3 hover:bg-muted/50 group cursor-pointer ${!n.read ? "bg-primary/[0.04]" : ""}`} onClick={() => markAsRead(n.id)}>
                                                             <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${n.color}`}>
                                                                 <Icon className="h-4 w-4" />
                                                             </div>
@@ -140,7 +144,7 @@ export function EmployeeLayout() {
                                                                 <p className="text-xs font-medium text-foreground">{n.title}</p>
                                                                 <p className="text-[11px] text-muted-foreground mt-0.5">{n.desc}</p>
                                                             </div>
-                                                            <button onClick={() => setDismissedNotifIds(p => new Set([...p, n.id]))}
+                                                            <button onClick={(e) => { e.stopPropagation(); markAsRead(n.id); setDismissedNotifIds(p => new Set([...p, n.id])); }}
                                                                 className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-muted">
                                                                 <X className="h-3 w-3 text-muted-foreground" />
                                                             </button>
