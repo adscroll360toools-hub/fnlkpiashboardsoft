@@ -84,47 +84,47 @@ export function GlobalElements() {
     <AnimatePresence>
       {popupReward && (
         <motion.div
-          key="reward-side-popup"
-          initial={{ opacity: 0, x: 32, y: -8 }}
+          key="reward-overlay"
+          initial={{ opacity: 0, x: 40, y: -10 }}
           animate={{ opacity: 1, x: 0, y: 0 }}
-          exit={{ opacity: 0, x: 32, y: -8 }}
-          transition={{ type: "spring", stiffness: 360, damping: 28 }}
-          className="fixed right-4 top-4 z-[300] w-[calc(100vw-2rem)] max-w-md"
+          exit={{ opacity: 0, x: 30, y: -8 }}
+          transition={{ type: "spring", stiffness: 380, damping: 28 }}
+          className="fixed right-4 top-20 z-[300] w-[min(420px,calc(100vw-2rem))]"
           role="dialog"
-          aria-modal="true"
+          aria-modal="false"
           aria-labelledby="reward-popup-title"
         >
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-violet-950 shadow-2xl">
-            <div className="absolute right-0 top-0 h-28 w-28 rounded-full bg-violet-500/20 blur-3xl" />
-            <div className="absolute bottom-0 left-0 h-24 w-24 rounded-full bg-amber-500/10 blur-2xl" />
+          <motion.div
+            className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-violet-950 shadow-2xl"
+          >
+            <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-violet-500/20 blur-3xl" />
+            <div className="absolute bottom-0 left-0 h-32 w-32 rounded-full bg-amber-500/10 blur-2xl" />
             <button
               type="button"
-              aria-label="Close reward notification"
+              aria-label="Close reward popup"
               onClick={dismiss}
-              className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-slate-200 hover:bg-white/20"
+              className="absolute right-3 top-3 z-10 rounded-lg bg-white/10 p-1.5 text-white/80 hover:bg-white/20 hover:text-white"
             >
               <X className="h-4 w-4" />
             </button>
-            <div className="relative p-5">
-              <div className="mb-3 flex items-start gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg">
-                  <TypeIcon className="h-6 w-6 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <p className="mb-0.5 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-widest text-violet-300">
-                    <Sparkles className="h-3.5 w-3.5" /> New reward
-                  </p>
-                  <h2 id="reward-popup-title" className="truncate text-lg font-bold tracking-tight text-white">
-                    {popupReward.title}
-                  </h2>
-                </div>
+            <div className="relative p-6 text-left">
+              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg">
+                <TypeIcon className="h-8 w-8 text-white" />
               </div>
-              <p className="text-sm leading-relaxed text-slate-300">{popupReward.description}</p>
-              <Button className="mt-4 h-10 w-full rounded-lg bg-white text-sm font-semibold text-slate-900 hover:bg-slate-100" onClick={dismiss}>
-                Mark as read
-              </Button>
+              <p className="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-violet-300">
+                <Sparkles className="h-3.5 w-3.5" /> New reward
+              </p>
+              <h2 id="reward-popup-title" className="text-2xl font-bold tracking-tight text-white">
+                {popupReward.title}
+              </h2>
+              <p className="mt-4 text-left text-sm leading-relaxed text-slate-300">{popupReward.description}</p>
+              <div className="mt-5 flex justify-end">
+                <Button className="h-10 rounded-xl bg-white px-5 text-sm font-semibold text-slate-900 hover:bg-slate-100" onClick={dismiss}>
+                  Got it
+                </Button>
+              </div>
             </div>
-          </div>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>

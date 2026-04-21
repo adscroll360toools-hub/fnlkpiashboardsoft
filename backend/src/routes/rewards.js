@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import Reward from '../models/Reward.js';
 import RewardAck from '../models/RewardAck.js';
+import Notification from '../models/Notification.js';
 
 const router = Router();
 
@@ -62,6 +63,19 @@ router.post('/', async (req, res, next) => {
       createdByName: String(req.body.createdByName || ''),
       rewardType,
     });
+    // Best-effort broadcast notification (do not fail reward creation if this fails)
+    try {
+      await Notification.create({
+        companyId,
+        type: 'Other',
+        title: `New ${rewardType} reward`,
+        message: `${String(title).trim()} has been published for your team.`,
+        senderId: String(req.body.createdById || 'system'),
+        senderName: String(req.body.createdByName || 'System'),
+      });
+    } catch (_e) {
+      // no-op
+    }
     res.status(201).json({ reward });
   } catch (err) {
     next(err);
