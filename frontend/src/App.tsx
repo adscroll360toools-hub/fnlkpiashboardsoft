@@ -119,8 +119,10 @@ function AppRoutes() {
           <Route path="/controller/dashboard" element={<ControllerDashboard />} />
           <Route path="/controller/tasks" element={<TasksPage />} />
           <Route path="/controller/attendance" element={<AttendancePage />} />
+          <Route path="/controller/leaderboard" element={<LeaderboardPage />} />
           <Route path="/controller/reports" element={<ReportsPage />} />
           <Route path="/controller/kpi" element={<KPITargetsPage />} />
+          <Route path="/controller/skills" element={<SkillsPage />} />
           <Route path="/controller/standups" element={<StandupsPage />} />
           <Route path="/controller/notes" element={<NotesPage />} />
           <Route path="/controller/settings" element={<PortalSettingsPage />} />
@@ -133,6 +135,7 @@ function AppRoutes() {
           <Route path="/employee/tasks" element={<TasksPage />} />
           <Route path="/employee/attendance" element={<AttendancePage />} />
           <Route path="/employee/leaderboard" element={<LeaderboardPage />} />
+          <Route path="/employee/skills" element={<SkillsPage />} />
           <Route path="/employee/standups" element={<StandupsPage />} />
           <Route path="/employee/notes" element={<NotesPage />} />
           <Route path="/employee/settings" element={<PortalSettingsPage />} />

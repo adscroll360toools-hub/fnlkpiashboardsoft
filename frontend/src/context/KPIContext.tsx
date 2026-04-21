@@ -18,6 +18,8 @@ export interface AppKPI {
     assignedToId?: string;
     assignedToName?: string;
     groupId?: string;
+    managedByControllerId?: string;
+    managedEmployeeIds?: string[];
     createdAt: string;
 }
 
@@ -101,6 +103,8 @@ function mapKPI(k: any): AppKPI {
         assignedToId: k.assignedToId,
         assignedToName: k.assignedToName,
         groupId: k.groupId,
+        managedByControllerId: k.managedByControllerId,
+        managedEmployeeIds: Array.isArray(k.managedEmployeeIds) ? k.managedEmployeeIds : [],
         createdAt: k.created_at || k.createdAt,
     };
 }

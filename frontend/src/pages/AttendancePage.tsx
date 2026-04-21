@@ -10,6 +10,7 @@ import { stagger, fadeUp } from "@/lib/animations";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useAttendance, AttendanceStatus } from "@/context/AttendanceContext";
+import { getEffectivePermissions } from "@/lib/permissions";
 
 // Types
 type MyAttendanceState = "not-checked-in" | "checked-in" | "on-break" | "checked-out";
@@ -28,7 +29,8 @@ const statusBadge: Record<string, string> = {
 const STATUS_OPTIONS: AttendanceStatus[] = ["Present", "Late", "Absent", "Leave", "Break"];
 
 export default function AttendancePage() {
-  const { currentUser, users } = useAuth();
+  const { currentUser, users, companyRoles } = useAuth();
+  const perms = getEffectivePermissions(currentUser, companyRoles);
   const { 
     records, 
     breakRequests, 
@@ -182,6 +184,10 @@ export default function AttendancePage() {
   
   const totalAttended = monthPresent + monthLate;
   const onTimePercent = totalAttended > 0 ? Math.round((monthPresent / totalAttended) * 100) : 100;
+
+  if (!perms.attendance_view) {
+    return <div className="rounded-2xl border bg-card p-8 text-center text-muted-foreground">You do not have access to attendance.</div>;
+  }
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">

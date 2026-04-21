@@ -41,6 +41,9 @@ function mapSkill(s: any): SkillRow {
 export default function SkillsPage() {
   const { users, currentUser } = useAuth();
   const companyId = currentUser?.companyId;
+  const isAdmin = currentUser?.role === "admin";
+  const isController = currentUser?.role === "controller";
+  const canAssign = isAdmin || isController;
 
   const teamMembers = users.filter((u) => u.role === "employee" || u.role === "controller");
 
@@ -66,14 +69,19 @@ export default function SkillsPage() {
     setLoading(true);
     try {
       const { skills: raw } = await api.skills.list(companyId);
-      setSkills((raw || []).map(mapSkill));
+      const mapped = (raw || []).map(mapSkill);
+      if (currentUser?.role === "employee" || currentUser?.role === "controller") {
+        setSkills(mapped.filter((s) => s.userId === currentUser.id));
+      } else {
+        setSkills(mapped);
+      }
     } catch (e: any) {
       toast.error(e?.message || "Failed to load skills");
       setSkills([]);
     } finally {
       setLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, currentUser?.id, currentUser?.role]);
 
   useEffect(() => {
     load();
@@ -171,9 +179,11 @@ export default function SkillsPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Skill Growth</h1>
             <p className="mt-1 text-sm text-muted-foreground">Track skill development — stored in the database</p>
           </div>
-          <Button id="assign-skill-btn" className="h-10 gap-2 rounded-lg px-5 text-sm font-medium" onClick={openAdd}>
-            <Plus className="h-4 w-4" /> Assign Skill
-          </Button>
+          {canAssign && (
+            <Button id="assign-skill-btn" className="h-10 gap-2 rounded-lg px-5 text-sm font-medium" onClick={openAdd}>
+              <Plus className="h-4 w-4" /> Assign Skill
+            </Button>
+          )}
         </motion.div>
 
         <motion.div variants={fadeUp} className="rounded-2xl bg-card p-6 shadow-card">

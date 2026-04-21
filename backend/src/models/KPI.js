@@ -19,6 +19,8 @@ const kpiSchema = new mongoose.Schema(
     assignedToName: { type: String },
     groupId: { type: String },
     companyId: { type: String, default: null },
+    managedByControllerId: { type: String, default: null },
+    managedEmployeeIds: { type: [String], default: [] },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },

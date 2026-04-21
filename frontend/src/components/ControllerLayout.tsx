@@ -6,7 +6,7 @@ import { useNotification } from "@/context/NotificationContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
     LayoutDashboard, ClipboardCheck, CalendarClock,
-    BarChart3, Settings, LogOut, Bell, Target, MessageSquare, StickyNote, X, Menu, Tags,
+    BarChart3, Settings, LogOut, Bell, Target, MessageSquare, StickyNote, X, Menu, Tags, Trophy, BookOpen,
 } from "lucide-react";
 import { DelayedTaskNotificationBar } from "@/components/DelayedTaskNotificationBar";
 
@@ -16,6 +16,8 @@ const navItems = [
     { label: "Attendance", to: "/controller/attendance", icon: CalendarClock },
     { label: "Reports", to: "/controller/reports", icon: BarChart3 },
     { label: "KPI", to: "/controller/kpi", icon: Target },
+    { label: "Leaderboard", to: "/controller/leaderboard", icon: Trophy },
+    { label: "Skill Growth", to: "/controller/skills", icon: BookOpen },
     { label: "Standups", to: "/controller/standups", icon: MessageSquare },
     { label: "Notes", to: "/controller/notes", icon: StickyNote },
     { label: "Roles", to: "/controller/roles", icon: Tags },

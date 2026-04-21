@@ -141,7 +141,12 @@ export default function RewardsPage() {
                       className="border-b last:border-0 transition-colors hover:bg-muted/50 group"
                     >
                       <td className="px-5 py-3">
-                        <p className="text-sm font-medium text-foreground">{reward.title}</p>
+                        <div className="flex items-center gap-2">
+                          {reward.imageUrl ? (
+                            <img src={reward.imageUrl} alt={reward.title} className="h-8 w-8 rounded object-cover" />
+                          ) : null}
+                          <p className="text-sm font-medium text-foreground">{reward.title}</p>
+                        </div>
                         <p className="mt-0.5 text-xs text-muted-foreground truncate max-w-xs">{reward.description}</p>
                       </td>
                       <td className="px-5 py-3 text-sm text-muted-foreground hidden sm:table-cell">

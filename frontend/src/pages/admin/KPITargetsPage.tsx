@@ -21,7 +21,8 @@ const emptyForm = {
   target: 20, 
   unit: "pieces",
   assignedToId: "",
-  groupId: ""
+  groupId: "",
+  controllerScopeId: "",
 };
 
 export default function KPITargetsPage() {
@@ -34,6 +35,7 @@ export default function KPITargetsPage() {
   const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
   const [tempProgress, setTempProgress] = useState<number>(0);
   const [form, setForm] = useState(emptyForm);
+  const [selectedManagedEmployeeIds, setSelectedManagedEmployeeIds] = useState<string[]>([]);
   const [formError, setFormError] = useState("");
 
   // Scoring management state
@@ -42,7 +44,7 @@ export default function KPITargetsPage() {
 
   const isAdmin = currentUser?.role === "admin";
   const isController = currentUser?.role === "controller";
-  const canCreate = isAdmin || isController;
+  const canCreate = isAdmin || (isController && perms.kpi_manage);
   const canDeleteKpi = isAdmin || (isController && perms.kpi_manage);
   const teamForKpi = users.filter(u => u.role === "employee" || u.role === "controller");
 
@@ -53,6 +55,7 @@ export default function KPITargetsPage() {
 
   const openAdd = () => {
     setForm({ ...emptyForm, type: activeTab === "Scoring" ? "Company" : (activeTab as KPIType) });
+    setSelectedManagedEmployeeIds([]);
     setFormError("");
     setShowModal(true);
   };
@@ -65,8 +68,14 @@ export default function KPITargetsPage() {
 
     const assignedUser = teamForKpi.find(u => u.id === form.assignedToId);
     
+    const managedByControllerId = isAdmin
+      ? form.controllerScopeId || currentUser?.id
+      : currentUser?.id;
+
     const res = await createKPI({
       ...form,
+      managedByControllerId,
+      managedEmployeeIds: selectedManagedEmployeeIds,
       assignedToName: assignedUser?.name
     });
 
@@ -131,6 +140,10 @@ export default function KPITargetsPage() {
       toast.error(res.error);
     }
   };
+
+  if (!isAdmin && !perms.kpi_manage) {
+    return <div className="rounded-2xl border bg-card p-8 text-center text-muted-foreground">You do not have access to manage KPIs.</div>;
+  }
 
   return (
     <>
@@ -404,6 +417,47 @@ export default function KPITargetsPage() {
                           </option>
                         ))}
                       </select>
+                    </div>
+                  )}
+
+                  {isAdmin && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="kpi-controller">Controller Scope</Label>
+                      <select
+                        id="kpi-controller"
+                        value={form.controllerScopeId}
+                        onChange={(e) => setForm({ ...form, controllerScopeId: e.target.value })}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                      >
+                        <option value="">No controller restriction</option>
+                        {users.filter((u) => u.role === "controller").map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {isAdmin && (
+                    <div className="space-y-1.5">
+                      <Label>Controller Team Members</Label>
+                      <div className="max-h-32 space-y-1 overflow-auto rounded-md border p-2">
+                        {users.filter((u) => u.role === "employee").map((u) => (
+                          <label key={u.id} className="flex items-center gap-2 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={selectedManagedEmployeeIds.includes(u.id)}
+                              onChange={(e) =>
+                                setSelectedManagedEmployeeIds((prev) =>
+                                  e.target.checked ? [...prev, u.id] : prev.filter((id) => id !== u.id)
+                                )
+                              }
+                            />
+                            {u.name}
+                          </label>
+                        ))}
+                      </div>
                     </div>
                   )}
 

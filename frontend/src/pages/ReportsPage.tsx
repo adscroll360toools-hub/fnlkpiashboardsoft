@@ -18,6 +18,7 @@ import { useKPI } from "@/context/KPIContext";
 import { useTask } from "@/context/TaskContext";
 import { useAttendance } from "@/context/AttendanceContext";
 import { useMemo } from "react";
+import { getEffectivePermissions } from "@/lib/permissions";
 
 /* ─── Types ─────────────────────────────────────────────────── */
 interface AttendanceRow {
@@ -89,7 +90,8 @@ type ReportPeriod = "daily" | "weekly" | "monthly" | "yearly";
 type ReportTab = "performance" | "attendance";
 
 export default function ReportsPage() {
-  const { users } = useAuth();
+  const { users, currentUser, companyRoles } = useAuth();
+  const perms = getEffectivePermissions(currentUser, companyRoles);
   const { kpis, qualityScores } = useKPI();
   const { tasks } = useTask();
   const { records } = useAttendance();
@@ -231,6 +233,10 @@ export default function ReportsPage() {
   const onLeaveCount = todayAttendance.filter((r) => r.status === "Leave" || r.status === "On Leave").length;
   const noRecordCount = todayAttendance.filter((r) => r.status === "—").length;
   const checkedInCount = presentBreakCount + lateCount;
+
+  if (!perms.reports_view) {
+    return <div className="rounded-2xl border bg-card p-8 text-center text-muted-foreground">You do not have access to reports.</div>;
+  }
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">

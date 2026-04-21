@@ -196,7 +196,7 @@ export function AppLayout() {
                             onClick={markAllRead}
                             className="text-[11px] font-medium text-primary hover:underline"
                           >
-                            Mark all read
+                            Mark as Read
                           </button>
                         )}
                       </div>
