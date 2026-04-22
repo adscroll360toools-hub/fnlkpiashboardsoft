@@ -1,7 +1,24 @@
 import { Router } from 'express';
 import Standup from '../models/Standup.js';
+import Notification from '../models/Notification.js';
 
 const router = Router();
+
+async function createNotification({
+  companyId,
+  title,
+  message,
+  senderId = 'system',
+  senderName = 'System',
+  type = 'Standup',
+}) {
+  if (!companyId || !title || !message) return;
+  try {
+    await Notification.create({ companyId, title, message, senderId, senderName, type });
+  } catch (err) {
+    console.error('Standup notification error:', err);
+  }
+}
 
 /** GET /api/standups?companyId=&from=YYYY-MM-DD&to=YYYY-MM-DD&standupDate= */
 router.get('/', async (req, res, next) => {
@@ -60,6 +77,15 @@ router.post('/', async (req, res, next) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
+    await createNotification({
+      companyId,
+      type: 'Standup',
+      title: 'Standup Submitted',
+      message: `${standup.userName || 'Team member'} submitted standup for ${standup.standupDate}.`,
+      senderId: standup.userId || 'system',
+      senderName: standup.userName || 'System',
+    });
+
     res.status(201).json({ standup });
   } catch (err) {
     next(err);
@@ -85,6 +111,16 @@ router.patch('/:id', async (req, res, next) => {
       { new: true }
     );
     if (!standup) return res.status(404).json({ error: 'Standup not found' });
+
+    await createNotification({
+      companyId,
+      type: 'Standup',
+      title: 'Standup Updated',
+      message: `${standup.userName || 'Team member'} updated standup for ${standup.standupDate}.`,
+      senderId: standup.userId || 'system',
+      senderName: standup.userName || 'System',
+    });
+
     res.json({ standup });
   } catch (err) {
     next(err);

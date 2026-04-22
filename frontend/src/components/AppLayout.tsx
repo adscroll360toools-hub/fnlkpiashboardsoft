@@ -16,6 +16,7 @@ interface Notification {
   title: string;
   description: string;
   time: string;
+  createdAt: string;
   read: boolean;
   icon: React.ElementType;
   iconColor: string;
@@ -39,11 +40,12 @@ export function AppLayout() {
       items.push({
         id: `global-notif-${n.id}`,
         title: n.title,
-        description: n.message,
-        time: new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        read: false,
-        icon: Bell,
-        iconColor: n.type === 'Meeting' ? 'text-blue-600 bg-blue-100' : 'text-purple-600 bg-purple-100',
+        description: `${n.senderName}: ${n.message}`,
+        time: new Date(n.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+        createdAt: n.createdAt,
+        read: n.read,
+        icon: n.type === "Task" ? ClipboardCheck : n.type === "Standup" ? UserCheck : n.type === "KPI" ? Trophy : Bell,
+        iconColor: n.type === 'Meeting' ? 'text-blue-600 bg-blue-100' : n.type === "Task" ? "text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30" : 'text-purple-600 bg-purple-100',
       });
     });
 
@@ -57,6 +59,7 @@ export function AppLayout() {
           title: "Task Ready for Review",
           description: `"${t.title}" was completed by ${t.assigneeName}`,
           time: t.createdAt ? new Date(t.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "recently",
+          createdAt: t.createdAt || new Date().toISOString(),
           read: false,
           icon: ClipboardCheck,
           iconColor: "text-primary bg-primary/10",
@@ -73,6 +76,7 @@ export function AppLayout() {
           title: "Task Approved",
           description: `"${t.title}" has been approved`,
           time: "recently",
+          createdAt: t.updatedAt || t.createdAt || new Date().toISOString(),
           read: false,
           icon: CheckCheck,
           iconColor: "text-green-600 bg-green-100 dark:bg-green-900/30",
@@ -89,6 +93,7 @@ export function AppLayout() {
           title: "Break Request Pending",
           description: `Break requested: ${r.reason} (${r.sessionTime})`,
           time: new Date(r.requestedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          createdAt: r.requestedAt,
           read: false,
           icon: AlertCircle,
           iconColor: "text-amber-600 bg-amber-100 dark:bg-amber-900/30",
@@ -106,6 +111,7 @@ export function AppLayout() {
           title: "New Message",
           description: `${lastMsg.senderName}: "${lastMsg.text.slice(0, 50)}${lastMsg.text.length > 50 ? "…" : ""}"`,
           time: new Date(lastMsg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          createdAt: lastMsg.timestamp,
           read: false,
           icon: Trophy,
           iconColor: "text-blue-600 bg-blue-100 dark:bg-blue-900/30",
@@ -115,7 +121,7 @@ export function AppLayout() {
     return items
       .filter((n) => !dismissedIds.has(n.id))
       .map((n) => ({ ...n, read: !!n.read }))
-      .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime() || 0); // basic sort
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [tasks, breakRequests, notifications, dismissedIds]);
 
   // Close on outside click

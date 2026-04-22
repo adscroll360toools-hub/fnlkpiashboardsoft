@@ -143,7 +143,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     const updateTaskStatus = async (taskId: string, status: TaskStatus) => {
         if (!currentUser) return { success: false, error: "Not logged in" };
         try {
-            await api.tasks.setStatus(taskId, status);
+            await api.tasks.setStatus(taskId, status, currentUser.id, currentUser.name);
             setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)));
             return { success: true };
         } catch (err: any) {
@@ -154,7 +154,11 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     const patchTask = async (taskId: string, partial: Partial<AppTask>) => {
         if (!currentUser) return { success: false, error: "Not logged in" };
         try {
-            const { task } = await api.tasks.patch(taskId, partial as Record<string, unknown>);
+            const { task } = await api.tasks.patch(taskId, {
+                ...(partial as Record<string, unknown>),
+                actorId: currentUser.id,
+                actorName: currentUser.name,
+            });
             setTasks((prev) => prev.map((t) => (t.id === taskId ? mapTask(task) : t)));
             return { success: true };
         } catch (err: any) {
@@ -165,7 +169,11 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     const submitTaskProof = async (taskId: string, sub: Omit<TaskSubmission, "submittedAt">) => {
         if (!currentUser) return { success: false, error: "Not logged in" };
         try {
-            const { task } = await api.tasks.submit(taskId, sub);
+            const { task } = await api.tasks.submit(taskId, {
+                ...sub,
+                actorId: currentUser.id,
+                actorName: currentUser.name,
+            });
             setTasks((prev) => prev.map((t) => (t.id === taskId ? mapTask(task) : t)));
             return { success: true };
         } catch (err: any) {

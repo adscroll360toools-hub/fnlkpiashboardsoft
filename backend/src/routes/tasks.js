@@ -1,9 +1,26 @@
 // backend/src/routes/tasks.js
 import { Router } from 'express';
 import Task from '../models/Task.js';
+import Notification from '../models/Notification.js';
 import { randomUUID } from 'crypto';
 
 const router = Router();
+
+async function createNotification({
+  companyId,
+  type = 'Task',
+  title,
+  message,
+  senderId = 'system',
+  senderName = 'System',
+}) {
+  if (!companyId || !title || !message) return;
+  try {
+    await Notification.create({ companyId, type, title, message, senderId, senderName });
+  } catch (err) {
+    console.error('Task notification error:', err);
+  }
+}
 
 /** GET /api/tasks/analytics — task performance analytics */
 router.get('/analytics', async (req, res, next) => {
@@ -129,6 +146,16 @@ router.post('/', async (req, res, next) => {
     if (!companyId) return res.status(400).json({ error: 'companyId is required' });
     
     const task = await Task.create({ ...req.body, messages: [] });
+
+    await createNotification({
+      companyId,
+      type: 'Task',
+      title: 'Task Assigned',
+      message: `${task.assignedByName || 'Manager'} assigned "${task.title}" to ${task.assigneeName || 'team member'}.`,
+      senderId: task.assignedById || 'system',
+      senderName: task.assignedByName || 'System',
+    });
+
     res.status(201).json({ task });
   } catch (err) { next(err); }
 });
@@ -136,10 +163,20 @@ router.post('/', async (req, res, next) => {
 /** PATCH /api/tasks/:id/status — update status */
 router.patch('/:id/status', async (req, res, next) => {
   try {
-    const { status, companyId } = req.body;
+    const { status, companyId, actorId, actorName } = req.body;
     if (!companyId) return res.status(400).json({ error: 'companyId is required' });
     const task = await Task.findOneAndUpdate({ _id: req.params.id, companyId }, { status }, { new: true });
     if (!task) return res.status(404).json({ error: 'Task not found or unauthorized' });
+
+    await createNotification({
+      companyId,
+      type: 'Update',
+      title: 'Task Status Updated',
+      message: `${task.title} is now "${status}" for ${task.assigneeName || 'assignee'}.`,
+      senderId: actorId || task.assignedById || 'system',
+      senderName: actorName || task.assignedByName || 'System',
+    });
+
     res.json({ task });
   } catch (err) { next(err); }
 });
@@ -147,7 +184,7 @@ router.patch('/:id/status', async (req, res, next) => {
 /** PATCH /api/tasks/:id/submission — submit proof */
 router.patch('/:id/submission', async (req, res, next) => {
   try {
-    const { companyId, ...rest } = req.body;
+    const { companyId, actorId, actorName, ...rest } = req.body;
     if (!companyId) return res.status(400).json({ error: 'companyId is required' });
     const submission = { ...rest, submittedAt: new Date().toISOString() };
     const task = await Task.findOneAndUpdate(
@@ -156,6 +193,16 @@ router.patch('/:id/submission', async (req, res, next) => {
       { new: true }
     );
     if (!task) return res.status(404).json({ error: 'Task not found or unauthorized' });
+
+    await createNotification({
+      companyId,
+      type: 'Task',
+      title: 'Task Completed',
+      message: `${task.assigneeName || 'Assignee'} submitted "${task.title}" for review.`,
+      senderId: actorId || task.assigneeId || 'system',
+      senderName: actorName || task.assigneeName || 'System',
+    });
+
     res.json({ task });
   } catch (err) { next(err); }
 });
@@ -172,6 +219,16 @@ router.post('/:id/messages', async (req, res, next) => {
       { new: true }
     );
     if (!task) return res.status(404).json({ error: 'Task not found or unauthorized' });
+
+    await createNotification({
+      companyId,
+      type: 'Message',
+      title: `New Task Message: ${task.title}`,
+      message: `${senderName}: ${String(text || '').slice(0, 140)}`,
+      senderId: senderId || 'system',
+      senderName: senderName || 'System',
+    });
+
     res.json({ task });
   } catch (err) { next(err); }
 });
@@ -185,7 +242,7 @@ const TASK_PATCH_KEYS = [
 /** PATCH /api/tasks/:id — partial update (priority, tags, dependency, etc.) */
 router.patch('/:id', async (req, res, next) => {
   try {
-    const { companyId, ...body } = req.body;
+    const { companyId, actorId, actorName, ...body } = req.body;
     if (!companyId) return res.status(400).json({ error: 'companyId is required' });
     const updates = {};
     for (const k of TASK_PATCH_KEYS) {
@@ -200,6 +257,16 @@ router.patch('/:id', async (req, res, next) => {
       { new: true }
     );
     if (!task) return res.status(404).json({ error: 'Task not found or unauthorized' });
+
+    await createNotification({
+      companyId,
+      type: 'Update',
+      title: 'Task Updated',
+      message: `Task "${task.title}" was updated${task.assigneeName ? ` for ${task.assigneeName}` : ''}.`,
+      senderId: actorId || task.assignedById || 'system',
+      senderName: actorName || task.assignedByName || 'System',
+    });
+
     res.json({ task });
   } catch (err) { next(err); }
 });

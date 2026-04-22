@@ -86,7 +86,8 @@ export const api = {
     list:       (companyId: string)                                   => request<{ tasks: any[] }>(`/api/tasks?companyId=${companyId}`),
     analytics:  (params: Record<string, string>)                      => request<any>(`/api/tasks/analytics?${new URLSearchParams(params)}`),
     create:     (data: Record<string, unknown>)                       => request<{ task: any }>('/api/tasks', { method: 'POST', body: JSON.stringify(data) }),
-    setStatus:  (id: string, status: string)                          => request<{ task: any }>(`/api/tasks/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+    setStatus:  (id: string, status: string, actorId?: string, actorName?: string) =>
+      request<{ task: any }>(`/api/tasks/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, actorId, actorName }) }),
     submit:     (id: string, sub: Record<string, unknown>)            => request<{ task: any }>(`/api/tasks/${id}/submission`, { method: 'PATCH', body: JSON.stringify(sub) }),
     addMessage: (id: string, msg: Record<string, unknown>)            => request<{ task: any }>(`/api/tasks/${id}/messages`, { method: 'POST', body: JSON.stringify(msg) }),
     patch:      (id: string, data: Record<string, unknown>)          => request<{ task: any }>(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),

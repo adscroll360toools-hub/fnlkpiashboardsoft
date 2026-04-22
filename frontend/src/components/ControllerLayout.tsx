@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
@@ -24,8 +24,6 @@ const navItems = [
     { label: "Settings", to: "/controller/settings", icon: Settings },
 ];
 
-const NOTIFICATIONS: any[] = [];
-
 export function ControllerLayout() {
     const { currentUser, logout } = useAuth();
     const { notifications: globalNotifications, unreadCount, markAsRead, markAllRead, clearAll } = useNotification();
@@ -36,18 +34,26 @@ export function ControllerLayout() {
     const [dismissedNotifIds, setDismissedNotifIds] = useState<Set<string>>(new Set());
 
     // Merge system notifications
-    const notifications = globalNotifications
-        .filter(n => !dismissedNotifIds.has(n.id))
-        .map(n => ({
-            id: n.id,
-            title: n.title,
-            desc: n.message,
-            time: new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            read: n.read,
-            icon: Bell,
-            color: n.type === 'Meeting' ? 'text-blue-600 bg-blue-100' : 'text-purple-600 bg-purple-100'
-        }))
-        .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime() || 0);
+    const notifications = useMemo(() => {
+        return globalNotifications
+            .filter((n) => !dismissedNotifIds.has(n.id))
+            .map((n) => ({
+                id: n.id,
+                title: n.title,
+                desc: `${n.senderName}: ${n.message}`,
+                time: new Date(n.createdAt).toLocaleString([], {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                }),
+                createdAt: n.createdAt,
+                read: n.read,
+                icon: n.type === "Task" ? ClipboardCheck : n.type === "Standup" ? MessageSquare : n.type === "KPI" ? Target : Bell,
+                color: n.type === "Meeting" ? "text-blue-600 bg-blue-100" : n.type === "Task" ? "text-violet-600 bg-violet-100 dark:bg-violet-900/20" : "text-purple-600 bg-purple-100"
+            }))
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [globalNotifications, dismissedNotifIds]);
 
     useEffect(() => {
         const handler = (e: MouseEvent) => {
@@ -153,7 +159,7 @@ export function ControllerLayout() {
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-xs font-medium text-foreground">{n.title}</p>
-                                                            <p className="text-[11px] text-muted-foreground mt-0.5">{n.desc}</p>
+                                                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{n.desc}</p>
                                                             <p className="text-[10px] text-muted-foreground/70 mt-1">{n.time}</p>
                                                         </div>
                                                         <button onClick={(e) => { e.stopPropagation(); markAsRead(n.id); setDismissedNotifIds(p => new Set([...p, n.id])); }}

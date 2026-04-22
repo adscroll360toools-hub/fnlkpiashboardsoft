@@ -1,9 +1,26 @@
 // backend/src/routes/kpis.js
 import { Router } from 'express';
 import KPI from '../models/KPI.js';
+import Notification from '../models/Notification.js';
 import { canManageKpi, canViewCompanyKpis, resolveActor } from '../utils/companyPermissions.js';
 
 const router = Router();
+
+async function createNotification({
+  companyId,
+  title,
+  message,
+  senderId = 'system',
+  senderName = 'System',
+  type = 'KPI',
+}) {
+  if (!companyId || !title || !message) return;
+  try {
+    await Notification.create({ companyId, title, message, senderId, senderName, type });
+  } catch (err) {
+    console.error('KPI notification error:', err);
+  }
+}
 
 /** Controllers only manage KPI rows scoped to them (PATCH/DELETE); list GET is company-wide for leaderboards. */
 function kpiVisibleToController(k, controllerId) {
@@ -42,6 +59,16 @@ router.post('/', async (req, res, next) => {
     }
 
     const kpi = await KPI.create({ ...body, current: 0 });
+
+    await createNotification({
+      companyId,
+      type: 'KPI',
+      title: 'KPI Created',
+      message: `${actor.user?.name || 'Manager'} created KPI "${kpi.name}"${kpi.assignedToName ? ` for ${kpi.assignedToName}` : ''}.`,
+      senderId: String(actor.user?._id || 'system'),
+      senderName: actor.user?.name || 'System',
+    });
+
     res.status(201).json({ kpi });
   } catch (err) { next(err); }
 });
@@ -59,6 +86,16 @@ router.patch('/:id/progress', async (req, res, next) => {
       return res.status(403).json({ error: 'KPI access denied' });
     }
     const kpi = await KPI.findOneAndUpdate({ _id: req.params.id, companyId }, { current }, { new: true });
+
+    await createNotification({
+      companyId,
+      type: 'KPI',
+      title: 'KPI Progress Updated',
+      message: `${kpi.name}: progress is now ${kpi.current}/${kpi.target}.`,
+      senderId: String(actor.user?._id || 'system'),
+      senderName: actor.user?.name || 'System',
+    });
+
     res.json({ kpi });
   } catch (err) { next(err); }
 });
