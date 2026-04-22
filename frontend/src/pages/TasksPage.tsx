@@ -36,7 +36,7 @@ const statusConfig = {
 type FilterTab = "All" | TaskStatus;
 
 // --- Sub-component: ChatBox (Isolated for performance) ---
-const ChatBox = memo(({ taskId, messages, currentUser }: { taskId: string, messages: any[], currentUser: any }) => {
+const ChatBox = memo(({ taskId, messages, currentUser, onClose }: { taskId: string, messages: any[], currentUser: any, onClose: () => void }) => {
     const { addMessage } = useTask();
     const [chatMsg, setChatMsg] = useState("");
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -53,12 +53,31 @@ const ChatBox = memo(({ taskId, messages, currentUser }: { taskId: string, messa
         else toast.error(res.error);
     };
 
+    const scrollToTop = () => {
+      if (!scrollRef.current) return;
+      scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    const scrollToBottom = () => {
+      if (!scrollRef.current) return;
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    };
+
     return (
-      <div className="w-full md:w-1/2 flex flex-col h-[500px] md:h-auto border-t md:border-t-0">
+      <div className="w-full md:w-1/2 flex min-h-0 flex-col border-t md:border-t-0 md:border-l">
           <div className="p-4 border-b flex justify-between items-center bg-card/50">
               <h3 className="font-semibold flex items-center gap-2"><MessageCircle className="h-4 w-4"/> Task Discussion</h3>
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Close discussion"
+                title="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
           </div>
-          <div ref={scrollRef} className="flex-1 p-4 overflow-y-auto space-y-3 bg-muted/5 scroll-smooth">
+          <div ref={scrollRef} className="flex-1 min-h-0 p-4 overflow-y-auto space-y-3 bg-muted/5 scroll-smooth">
               {messages.length === 0 ? (
                   <div className="text-center text-muted-foreground text-sm mt-10">No messages yet. Send a message to start discussion.</div>
               ) : (
@@ -77,6 +96,10 @@ const ChatBox = memo(({ taskId, messages, currentUser }: { taskId: string, messa
                       )
                   })
               )}
+          </div>
+          <div className="px-3 py-1 border-t bg-card/70 flex items-center justify-end gap-2">
+            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={scrollToTop}>Top</Button>
+            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={scrollToBottom}>Bottom</Button>
           </div>
           <form onSubmit={handleSend} className="p-3 border-t bg-card flex gap-2">
               <Input value={chatMsg} onChange={e=>setChatMsg(e.target.value)} placeholder="Type a message..." className="flex-1 h-9 rounded-full px-4" />
@@ -569,12 +592,12 @@ export default function TasksPage() {
       {/* Task Detail Modal */}
       <AnimatePresence>
         {selectedTask && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 overflow-y-auto">
-              <div className="w-full max-w-3xl bg-card rounded-2xl border shadow-2xl my-8 relative flex flex-col md:flex-row min-h-[500px] overflow-hidden">
-                  <div className="w-full md:w-1/2 p-6 bg-muted/10">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60">
+              <div className="relative flex h-[calc(100vh-1rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl sm:h-[min(92vh,760px)] md:flex-row">
+                  <div className="w-full md:w-1/2 p-6 bg-muted/10 overflow-y-auto min-h-0">
                       <div className="flex justify-between items-start mb-4">
                           <h2 className="text-xl font-bold pr-4">{selectedTask.title}</h2>
-                          <button onClick={() => setSelectedTaskId(null)} className="md:hidden"><X className="h-5 w-5" /></button>
+                          <button onClick={() => setSelectedTaskId(null)} className="inline-flex md:hidden"><X className="h-5 w-5" /></button>
                       </div>
                       <div className="space-y-4 text-sm font-medium">
                           <div><span className="text-muted-foreground mr-2">Status:</span> <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${statusConfig[selectedTask.status].color}`}>{selectedTask.status}</span></div>
@@ -612,8 +635,8 @@ export default function TasksPage() {
                       </div>
                       <ProofSection task={selectedTask} currentUser={currentUser} />
                   </div>
-                  <ChatBox taskId={selectedTask.id} messages={selectedTask.messages} currentUser={currentUser} />
-                  <button onClick={() => setSelectedTaskId(null)} className="absolute top-4 right-4 hidden md:block text-muted-foreground hover:text-foreground"><X className="h-5 w-5"/></button>
+                  <ChatBox taskId={selectedTask.id} messages={selectedTask.messages} currentUser={currentUser} onClose={() => setSelectedTaskId(null)} />
+                  <button onClick={() => setSelectedTaskId(null)} className="absolute top-4 right-4 hidden md:inline-flex h-8 w-8 items-center justify-center rounded-md bg-card/90 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-5 w-5"/></button>
               </div>
             </motion.div>
         )}
