@@ -91,6 +91,10 @@ const ProofSection = memo(({ task, currentUser }: { task: AppTask, currentUser: 
     const { submitTaskProof } = useTask();
     const [proofText, setProofText] = useState("");
     const [proofUrl, setProofUrl] = useState("");
+    const canSubmitProof =
+      !!currentUser?.id &&
+      (currentUser?.role === "employee" || currentUser?.role === "controller") &&
+      isTaskAssignedTo(task, currentUser.id);
 
     const handleProofSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -112,11 +116,11 @@ const ProofSection = memo(({ task, currentUser }: { task: AppTask, currentUser: 
                 </div>
             ) : (
                 <div className="p-4 bg-muted/30 border border-dashed rounded-lg text-sm text-center text-muted-foreground">
-                    {currentUser?.role === "employee" ? "Submit your proof of work below." : "No proof submitted yet."}
+                    {canSubmitProof ? "Submit your proof of work below." : "No proof submitted yet."}
                 </div>
             )}
 
-            {currentUser?.role === "employee" && !task.submission && (
+            {canSubmitProof && !task.submission && (
                 <form onSubmit={handleProofSubmit} className="mt-4 space-y-3">
                     <textarea value={proofText} onChange={e => setProofText(e.target.value)}
                         className="w-full text-sm p-3 border rounded-lg bg-background" rows={2} placeholder="Explain what you did..."></textarea>
@@ -133,7 +137,17 @@ export default function TasksPage() {
   const { tasks, createTask, updateTaskStatus, deleteTask, refreshTasks } = useTask();
   const [viewMode, setViewMode] = useState<"table" | "board">("table");
   const perms = getEffectivePermissions(currentUser, companyRoles);
-  const assignees = users.filter((u) => u.role !== "admin");
+  const assignees = useMemo(() => {
+    const pool = users.filter((u) => u.role !== "admin");
+    if (
+      currentUser &&
+      currentUser.role !== "admin" &&
+      !pool.some((u) => u.id === currentUser.id)
+    ) {
+      return [currentUser, ...pool];
+    }
+    return pool;
+  }, [users, currentUser]);
 
   const [activeFilter, setActiveFilter] = useState<FilterTab>("All");
   const [showModal, setShowModal] = useState(false);
