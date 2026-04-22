@@ -37,14 +37,18 @@ export function parseEnTimeToMinutes(s: string): number | null {
   return h * 60 + min;
 }
 
-/** Present if check-in by workStart + lateAfterMinutes; Late until absentIfNoCheckInBy; else Absent. */
+/**
+ * Check-in status from company rules.
+ * If "late after" would end after the absent cutoff, grace is clamped so absent-by still wins (e.g. 114 min vs 10:30 AM).
+ */
 export function statusFromCheckInTime(checkInTime: string, rules: AttendanceRules): "Present" | "Late" | "Absent" {
   const cin = parseEnTimeToMinutes(checkInTime);
   if (cin == null) return "Present";
   const ws = parseHHMMToMinutes(rules.workStart) ?? 9 * 60;
-  const lateCutoff = ws + Math.max(0, Number(rules.lateAfterMinutes) || 0);
-  const absentCut = parseHHMMToMinutes(rules.absentIfNoCheckInBy) ?? lateCutoff + 60;
-  if (cin <= lateCutoff) return "Present";
-  if (cin < absentCut) return "Late";
+  const graceEnd = ws + Math.max(0, Number(rules.lateAfterMinutes) || 0);
+  const absentStart = parseHHMMToMinutes(rules.absentIfNoCheckInBy) ?? graceEnd + 60;
+  const presentEnd = Math.min(graceEnd, Math.max(0, absentStart - 1));
+  if (cin <= presentEnd) return "Present";
+  if (cin < absentStart) return "Late";
   return "Absent";
 }

@@ -26,7 +26,7 @@ router.patch('/:companyId', async (req, res, next) => {
     if (!canEditCompanySettings(actor)) {
       return res.status(403).json({ error: 'Only company admin can edit company settings' });
     }
-    const allowed = ['attendanceSettings', 'name', 'industry', 'website'];
+    const allowed = ['attendanceSettings', 'workingHours', 'name', 'industry', 'website'];
     const updates = {};
     for (const k of allowed) {
       if (req.body[k] !== undefined) updates[k] = req.body[k];

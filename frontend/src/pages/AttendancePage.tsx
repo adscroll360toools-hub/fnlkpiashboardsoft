@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CalendarClock, Clock, Coffee, LogIn, LogOut,
@@ -12,6 +12,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useAttendance, AttendanceStatus } from "@/context/AttendanceContext";
 import { getEffectivePermissions } from "@/lib/permissions";
 import { companyOperationalTeam } from "@/lib/companyTeam";
+import { api } from "@/lib/api";
 
 // Types
 type MyAttendanceState = "not-checked-in" | "checked-in" | "on-break" | "checked-out";
@@ -52,6 +53,7 @@ export default function AttendancePage() {
   const [breakReason, setBreakReason] = useState("");
   const [breakDuration, setBreakDuration] = useState("");
   const [teamTimeFilter, setTeamTimeFilter] = useState<TeamTimeFilter>("Daily");
+  const [companyWorkingDays, setCompanyWorkingDays] = useState<number | null>(null);
 
   const today = useMemo(() => {
     const now = new Date();
@@ -59,6 +61,25 @@ export default function AttendancePage() {
   }, []);
 
   const myTodayRecord = records.find(r => r.userId === currentUser?.id && r.date === today);
+
+  useEffect(() => {
+    if (!currentUser?.companyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { company } = await api.tenantCompany.get(currentUser.companyId);
+        const value = Number(company?.workingHours?.workingDaysPerMonth);
+        if (!cancelled && Number.isFinite(value) && value > 0) {
+          setCompanyWorkingDays(Math.floor(value));
+        }
+      } catch {
+        /* keep fallback */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.companyId]);
 
   let state: MyAttendanceState = "not-checked-in";
   if (myTodayRecord) {
@@ -162,7 +183,7 @@ export default function AttendancePage() {
   const myRecords = records.filter(r => r.userId === currentUser?.id).slice(-5).reverse();
 
   // Dynamic Month Stats
-  const currentMonthWorkingDays = useMemo(() => {
+  const defaultMonthWorkingDays = useMemo(() => {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth();
@@ -174,6 +195,7 @@ export default function AttendancePage() {
     }
     return workingDays;
   }, []);
+  const currentMonthWorkingDays = companyWorkingDays || defaultMonthWorkingDays;
 
   const myMonthRecords = useMemo(() => {
     return records.filter(r => r.userId === currentUser?.id && r.date.startsWith(today.slice(0, 7)));

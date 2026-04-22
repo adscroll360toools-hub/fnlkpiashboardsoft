@@ -5,11 +5,11 @@ export const DEFAULT_ATTENDANCE_SETTINGS = {
   absentIfNoCheckInBy: '10:30',
   resetDay: 'Sunday',
   statusWindows: {
-    present: { start: '00:00', end: '09:15' },
-    late: { start: '09:16', end: '10:29' },
-    absent: { start: '10:30', end: '23:59' },
-    leave: { start: '00:00', end: '23:59' },
-    break: { start: '00:00', end: '23:59' },
+    present: { start: '09:00', end: '11:30' },
+    late: { start: '11:31', end: '13:00' },
+    absent: { start: '13:01', end: '14:00' },
+    leave: { start: '14:01', end: '08:59' },
+    break: { start: '09:00', end: '17:30' },
   },
 };
 
@@ -52,8 +52,10 @@ export function statusFromCheckInTime(checkInTime, settings) {
   if (checkInMins == null) return 'Present';
   const workStart = parseHHMM(cfg.workStart) ?? 9 * 60;
   const lateAfter = Math.max(0, Number(cfg.lateAfterMinutes) || 0);
-  const absentBy = parseHHMM(cfg.absentIfNoCheckInBy) ?? workStart + lateAfter + 60;
-  if (checkInMins <= workStart + lateAfter) return 'Present';
-  if (checkInMins < absentBy) return 'Late';
+  const graceEnd = workStart + lateAfter;
+  const absentStart = parseHHMM(cfg.absentIfNoCheckInBy) ?? graceEnd + 60;
+  const presentEnd = Math.min(graceEnd, Math.max(0, absentStart - 1));
+  if (checkInMins <= presentEnd) return 'Present';
+  if (checkInMins < absentStart) return 'Late';
   return 'Absent';
 }
