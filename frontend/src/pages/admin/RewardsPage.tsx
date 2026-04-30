@@ -4,7 +4,7 @@ import { stagger, fadeUp } from "@/lib/animations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trophy, Star, Award, X, Trash2 } from "lucide-react";
+import { Plus, Trophy, Star, Award, X, Trash2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useReward } from "@/context/RewardContext";
 import { useAuth, UserRole } from "@/context/AuthContext";
@@ -91,6 +91,16 @@ export default function RewardsPage() {
     if (!res.success) toast.error(res.error || "Failed to update format");
   };
 
+  const handleDownloadImage = (imageUrl: string, title: string) => {
+    const link = document.createElement("a");
+    link.href = imageUrl;
+    link.download = `${title.replace(/[^a-z0-9]+/gi, "_").toLowerCase()}_reward`;
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <>
       <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
@@ -154,11 +164,23 @@ export default function RewardsPage() {
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
                           {reward.imageUrl ? (
-                            <img src={reward.imageUrl} alt={reward.title} className="h-8 w-8 rounded object-cover" />
+                            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded border bg-muted/30">
+                              <img src={reward.imageUrl} alt={reward.title} className="h-full w-full object-contain p-0.5" />
+                            </div>
                           ) : null}
                           <p className="text-sm font-medium text-foreground">{reward.title}</p>
                         </div>
                         <p className="mt-0.5 text-xs text-muted-foreground truncate max-w-xs">{reward.description}</p>
+                        {reward.imageUrl ? (
+                          <button
+                            type="button"
+                            className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                            onClick={() => handleDownloadImage(reward.imageUrl || "", reward.title)}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Download image
+                          </button>
+                        ) : null}
                       </td>
                       <td className="px-5 py-3 text-sm text-muted-foreground hidden sm:table-cell">
                         {FORMAT_LABELS[reward.rewardType || "recognition"]}

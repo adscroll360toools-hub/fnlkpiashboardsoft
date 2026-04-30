@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { Award } from "lucide-react";
+import { Award, Download } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useReward } from "@/context/RewardContext";
+import { Button } from "@/components/ui/button";
 
 export default function PortalRewardsPage() {
   const { currentUser } = useAuth();
@@ -17,6 +18,16 @@ export default function PortalRewardsPage() {
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [currentUser, rewards]);
+
+  const handleDownloadImage = (imageUrl: string, title: string) => {
+    const link = document.createElement("a");
+    link.href = imageUrl;
+    link.download = `${title.replace(/[^a-z0-9]+/gi, "_").toLowerCase()}_reward`;
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="space-y-5">
@@ -42,12 +53,30 @@ export default function PortalRewardsPage() {
                 </div>
               </div>
               {reward.imageUrl ? (
-                <img src={reward.imageUrl} alt={reward.title} className="mb-3 h-36 w-full rounded-lg object-cover" />
+                <div className="mb-3 overflow-hidden rounded-lg border bg-muted/30">
+                  <img
+                    src={reward.imageUrl}
+                    alt={reward.title}
+                    className="h-48 w-full object-contain p-2 sm:h-56"
+                  />
+                </div>
               ) : null}
               <p className="text-sm text-muted-foreground">{reward.description}</p>
-              <p className="mt-3 text-xs text-muted-foreground">
-                {new Date(reward.createdAt).toLocaleDateString()}
-              </p>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">{new Date(reward.createdAt).toLocaleDateString()}</p>
+                {reward.imageUrl ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1"
+                    onClick={() => handleDownloadImage(reward.imageUrl || "", reward.title)}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download
+                  </Button>
+                ) : null}
+              </div>
             </div>
           ))}
         </div>
