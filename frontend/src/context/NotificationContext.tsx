@@ -16,7 +16,12 @@ export interface AppNotification {
 interface NotificationContextType {
   notifications: AppNotification[];
   unreadCount: number;
-  sendNotification: (type: string, title: string, message: string) => Promise<{ success: boolean; error?: string }>;
+  sendNotification: (
+    type: string,
+    title: string,
+    message: string,
+    audience?: { audienceType?: "public" | "role" | "user"; targetRole?: string; targetUserId?: string }
+  ) => Promise<{ success: boolean; error?: string }>;
   fetchNotifications: () => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
   markAllRead: () => Promise<void>;
@@ -46,7 +51,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const fetchNotifications = useCallback(async () => {
     if (!currentUser || currentUser.role === 'super_admin' || !currentUser.companyId) return;
     try {
-      const res = await api.notifications.list(currentUser.companyId, currentUser.id);
+      const res = await api.notifications.list(currentUser.companyId, currentUser.id, currentUser.role);
       const mapped = res.notifications.map(mapNotification);
       setNotifications(mapped);
       setUnreadCount(typeof res.unreadCount === "number" ? res.unreadCount : mapped.filter((n) => !n.read).length);
@@ -61,7 +66,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
-  const sendNotification = async (type: string, title: string, message: string) => {
+  const sendNotification = async (
+    type: string,
+    title: string,
+    message: string,
+    audience?: { audienceType?: "public" | "role" | "user"; targetRole?: string; targetUserId?: string }
+  ) => {
     if (!currentUser || !currentUser.companyId) return { success: false, error: "Not authenticated" };
     try {
       await api.notifications.create({
@@ -71,6 +81,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         message,
         senderId: currentUser.id,
         senderName: currentUser.name,
+        audienceType: audience?.audienceType || "public",
+        targetRole: audience?.targetRole || null,
+        targetUserId: audience?.targetUserId || null,
       });
       await fetchNotifications();
       return { success: true };
@@ -93,7 +106,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const markAllRead = useCallback(async () => {
     if (!currentUser?.companyId) return;
     try {
-      await api.notifications.markAllRead({ companyId: currentUser.companyId, userId: currentUser.id });
+      await api.notifications.markAllRead({ companyId: currentUser.companyId, userId: currentUser.id, userRole: currentUser.role });
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
     } catch (err) {

@@ -6,12 +6,21 @@ const router = express.Router();
 // Get notifications for a company
 router.get('/', async (req, res) => {
   try {
-    const { companyId, userId } = req.query;
-    if (!companyId || !userId) {
-      return res.status(400).json({ error: 'companyId and userId are required' });
+    const { companyId, userId, userRole } = req.query;
+    if (!companyId || !userId || !userRole) {
+      return res.status(400).json({ error: 'companyId, userId and userRole are required' });
     }
 
-    const notifications = await Notification.find({ companyId }).sort({ createdAt: -1 }).limit(50);
+    const notifications = await Notification.find({
+      companyId,
+      $or: [
+        { audienceType: 'public' },
+        { audienceType: 'role', targetRole: String(userRole) },
+        { audienceType: 'user', targetUserId: String(userId) },
+        // Backward compatibility: old records without audienceType are treated as public
+        { audienceType: { $exists: false } },
+      ],
+    }).sort({ createdAt: -1 }).limit(50);
     const withRead = notifications.map((n) => {
       const obj = n.toObject();
       obj.read = Array.isArray(obj.readByUserIds) ? obj.readByUserIds.includes(String(userId)) : false;
@@ -27,9 +36,26 @@ router.get('/', async (req, res) => {
 // Create a new notification
 router.post('/', async (req, res) => {
   try {
-    const { companyId, type, title, message, senderId, senderName } = req.body;
+    const {
+      companyId,
+      type,
+      title,
+      message,
+      senderId,
+      senderName,
+      audienceType,
+      targetRole,
+      targetUserId,
+    } = req.body;
     if (!companyId || !title || !message || !senderId || !senderName) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+    const normalizedAudienceType = ['public', 'role', 'user'].includes(audienceType) ? audienceType : 'public';
+    if (normalizedAudienceType === 'role' && !targetRole) {
+      return res.status(400).json({ error: 'targetRole is required for role notifications' });
+    }
+    if (normalizedAudienceType === 'user' && !targetUserId) {
+      return res.status(400).json({ error: 'targetUserId is required for user notifications' });
     }
 
     const notification = await Notification.create({
@@ -39,6 +65,9 @@ router.post('/', async (req, res) => {
       message,
       senderId,
       senderName,
+      audienceType: normalizedAudienceType,
+      targetRole: normalizedAudienceType === 'role' ? String(targetRole) : null,
+      targetUserId: normalizedAudienceType === 'user' ? String(targetUserId) : null,
     });
 
     res.status(201).json({ success: true, notification });
@@ -70,12 +99,20 @@ router.patch('/:id/read', async (req, res) => {
 // Mark all as read
 router.post('/read-all', async (req, res) => {
   try {
-    const { companyId, userId } = req.body;
-    if (!companyId || !userId) {
-      return res.status(400).json({ error: 'companyId and userId are required' });
+    const { companyId, userId, userRole } = req.body;
+    if (!companyId || !userId || !userRole) {
+      return res.status(400).json({ error: 'companyId, userId and userRole are required' });
     }
     await Notification.updateMany(
-      { companyId },
+      {
+        companyId,
+        $or: [
+          { audienceType: 'public' },
+          { audienceType: 'role', targetRole: String(userRole) },
+          { audienceType: 'user', targetUserId: String(userId) },
+          { audienceType: { $exists: false } },
+        ],
+      },
       { $addToSet: { readByUserIds: String(userId) } }
     );
     res.json({ success: true });

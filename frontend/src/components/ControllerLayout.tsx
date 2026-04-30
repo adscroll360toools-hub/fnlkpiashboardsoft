@@ -6,9 +6,10 @@ import { useNotification } from "@/context/NotificationContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
     LayoutDashboard, ClipboardCheck, CalendarClock,
-    BarChart3, Settings, LogOut, Bell, Target, MessageSquare, StickyNote, X, Menu, Tags, Trophy, BookOpen,
+    BarChart3, Settings, LogOut, Bell, Target, MessageSquare, StickyNote, X, Menu, Tags, Trophy, BookOpen, Gift,
 } from "lucide-react";
 import { DelayedTaskNotificationBar } from "@/components/DelayedTaskNotificationBar";
+import { RewardAnnouncementBanner } from "@/components/RewardAnnouncementBanner";
 
 const navItems = [
     { label: "Dashboard", to: "/controller/dashboard", icon: LayoutDashboard },
@@ -18,6 +19,7 @@ const navItems = [
     { label: "KPI", to: "/controller/kpi", icon: Target },
     { label: "Leaderboard", to: "/controller/leaderboard", icon: Trophy },
     { label: "Skill Growth", to: "/controller/skills", icon: BookOpen },
+    { label: "Rewards", to: "/controller/rewards", icon: Gift },
     { label: "Standups", to: "/controller/standups", icon: MessageSquare },
     { label: "Notes", to: "/controller/notes", icon: StickyNote },
     { label: "Roles", to: "/controller/roles", icon: Tags },
@@ -190,6 +192,7 @@ export function ControllerLayout() {
                     </div>
                 </header>
                 <DelayedTaskNotificationBar scope="company" />
+                <RewardAnnouncementBanner />
                 <main className="flex-1 overflow-auto p-6 lg:p-8">
                     <Outlet />
                 </main>

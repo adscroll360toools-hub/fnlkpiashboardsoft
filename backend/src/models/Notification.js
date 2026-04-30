@@ -26,6 +26,19 @@ const notificationSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  audienceType: {
+    type: String,
+    enum: ['public', 'role', 'user'],
+    default: 'public',
+  },
+  targetRole: {
+    type: String,
+    default: null,
+  },
+  targetUserId: {
+    type: String,
+    default: null,
+  },
   readByUserIds: {
     type: [String],
     default: [],

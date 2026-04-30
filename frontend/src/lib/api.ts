@@ -131,7 +131,7 @@ export const api = {
   },
 
   notifications: {
-    list:   (companyId: string, userId: string)      => request<{ notifications: any[]; unreadCount: number }>(`/api/notifications?companyId=${companyId}&userId=${encodeURIComponent(userId)}`),
+    list:   (companyId: string, userId: string, userRole: string)      => request<{ notifications: any[]; unreadCount: number }>(`/api/notifications?companyId=${companyId}&userId=${encodeURIComponent(userId)}&userRole=${encodeURIComponent(userRole)}`),
     create: (data: Record<string, unknown>)         => request<{ notification: any }>('/api/notifications', { method: 'POST', body: JSON.stringify(data) }),
     markRead: (id: string, data: Record<string, unknown>) => request<{ notification: any }>(`/api/notifications/${id}/read`, { method: 'PATCH', body: JSON.stringify(data) }),
     markAllRead: (data: Record<string, unknown>) => request('/api/notifications/read-all', { method: 'POST', body: JSON.stringify(data) }),
@@ -177,6 +177,9 @@ export const api = {
     ack:     (rewardId: string, data: Record<string, unknown>) => request(`/api/rewards/${rewardId}/ack`, { method: 'POST', body: JSON.stringify(data) }),
     remove:  (id: string, companyId: string)      =>
       request(`/api/rewards/${id}?companyId=${encodeURIComponent(companyId)}`, { method: 'DELETE' }),
+    formats: (companyId: string) => request<{ formats: any[] }>(`/api/rewards/formats?companyId=${companyId}`),
+    setFormat: (format: string, data: Record<string, unknown>) =>
+      request<{ format: any }>(`/api/rewards/formats/${encodeURIComponent(format)}`, { method: 'PATCH', body: JSON.stringify(data) }),
   },
 
   tenantCompany: {

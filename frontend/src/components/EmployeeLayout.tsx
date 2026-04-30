@@ -4,8 +4,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { useNotification } from "@/context/NotificationContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { LayoutDashboard, ClipboardCheck, CalendarClock, Trophy, Settings, LogOut, Bell, X, Menu, MessageSquare, StickyNote, BookOpen } from "lucide-react";
+import { LayoutDashboard, ClipboardCheck, CalendarClock, Trophy, Settings, LogOut, Bell, X, Menu, MessageSquare, StickyNote, BookOpen, Gift } from "lucide-react";
 import { DelayedTaskNotificationBar } from "@/components/DelayedTaskNotificationBar";
+import { RewardAnnouncementBanner } from "@/components/RewardAnnouncementBanner";
 
 const navItems = [
     { label: "Dashboard", to: "/employee/dashboard", icon: LayoutDashboard },
@@ -15,6 +16,7 @@ const navItems = [
     { label: "Attendance", to: "/employee/attendance", icon: CalendarClock },
     { label: "Leaderboard", to: "/employee/leaderboard", icon: Trophy },
     { label: "Skill Growth", to: "/employee/skills", icon: BookOpen },
+    { label: "Rewards", to: "/employee/rewards", icon: Gift },
     { label: "Settings", to: "/employee/settings", icon: Settings },
 ];
 
@@ -178,6 +180,7 @@ export function EmployeeLayout() {
                     </div>
                 </header>
                 <DelayedTaskNotificationBar scope="self" />
+                <RewardAnnouncementBanner />
                 <main className="flex-1 overflow-auto p-6 lg:p-8">
                     <Outlet />
                 </main>

@@ -2,8 +2,22 @@ import { Router } from 'express';
 import Reward from '../models/Reward.js';
 import RewardAck from '../models/RewardAck.js';
 import Notification from '../models/Notification.js';
+import RewardFormatSetting from '../models/RewardFormatSetting.js';
 
 const router = Router();
+const SUPPORTED_REWARD_FORMATS = ['bonus', 'certificate', 'recognition'];
+
+async function ensureFormatRows(companyId) {
+  await Promise.all(
+    SUPPORTED_REWARD_FORMATS.map((format) =>
+      RewardFormatSetting.findOneAndUpdate(
+        { companyId, format },
+        { $setOnInsert: { isActive: true } },
+        { upsert: true, new: true }
+      )
+    )
+  );
+}
 
 function isEligible(reward, user) {
   if (user.role === 'admin' || user.role === 'super_admin') return false;
@@ -44,6 +58,39 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+/** GET /api/rewards/formats?companyId= */
+router.get('/formats', async (req, res, next) => {
+  try {
+    const { companyId } = req.query;
+    if (!companyId) return res.status(400).json({ error: 'companyId is required' });
+    await ensureFormatRows(String(companyId));
+    const formats = await RewardFormatSetting.find({ companyId }).sort({ format: 1 });
+    res.json({ formats });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** PATCH /api/rewards/formats/:format */
+router.patch('/formats/:format', async (req, res, next) => {
+  try {
+    const { companyId, isActive } = req.body;
+    const { format } = req.params;
+    if (!companyId) return res.status(400).json({ error: 'companyId is required' });
+    if (!SUPPORTED_REWARD_FORMATS.includes(format)) {
+      return res.status(400).json({ error: 'Invalid format' });
+    }
+    const setting = await RewardFormatSetting.findOneAndUpdate(
+      { companyId, format },
+      { isActive: Boolean(isActive) },
+      { upsert: true, new: true }
+    );
+    res.json({ format: setting });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/', async (req, res, next) => {
   try {
     const { companyId, title } = req.body;
@@ -52,6 +99,13 @@ router.post('/', async (req, res, next) => {
     }
     const allowedTypes = ['bonus', 'certificate', 'recognition', 'gift'];
     const rewardType = allowedTypes.includes(req.body.rewardType) ? req.body.rewardType : 'recognition';
+    if (SUPPORTED_REWARD_FORMATS.includes(rewardType)) {
+      await ensureFormatRows(String(companyId));
+      const selectedFormat = await RewardFormatSetting.findOne({ companyId, format: rewardType });
+      if (!selectedFormat?.isActive) {
+        return res.status(400).json({ error: `${rewardType} format is currently inactive` });
+      }
+    }
     const reward = await Reward.create({
       companyId,
       title: String(title).trim(),
@@ -72,6 +126,16 @@ router.post('/', async (req, res, next) => {
         message: `${String(title).trim()} has been published for your team.`,
         senderId: String(req.body.createdById || 'system'),
         senderName: String(req.body.createdByName || 'System'),
+        audienceType: req.body.eligibleEmployeeId
+          ? 'user'
+          : req.body.eligibleRole && req.body.eligibleRole !== 'All'
+            ? 'role'
+            : 'public',
+        targetUserId: req.body.eligibleEmployeeId ? String(req.body.eligibleEmployeeId) : null,
+        targetRole:
+          req.body.eligibleRole && req.body.eligibleRole !== 'All'
+            ? String(req.body.eligibleRole)
+            : null,
       });
     } catch (_e) {
       // no-op

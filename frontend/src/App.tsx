@@ -46,6 +46,7 @@ import EmployeeDashboard from "./pages/portal/EmployeeDashboard";
 
 // Shared portal pages (reused across controller + employee)
 import PortalSettingsPage from "./pages/portal/PortalSettingsPage";
+import PortalRewardsPage from "./pages/portal/PortalRewardsPage";
 
 import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
@@ -126,6 +127,7 @@ function AppRoutes() {
           <Route path="/controller/standups" element={<StandupsPage />} />
           <Route path="/controller/notes" element={<NotesPage />} />
           <Route path="/controller/settings" element={<PortalSettingsPage />} />
+          <Route path="/controller/rewards" element={<PortalRewardsPage />} />
           <Route path="/controller/roles" element={<RolesPage />} />
         </Route>
 
@@ -138,6 +140,7 @@ function AppRoutes() {
           <Route path="/employee/skills" element={<SkillsPage />} />
           <Route path="/employee/standups" element={<StandupsPage />} />
           <Route path="/employee/notes" element={<NotesPage />} />
+          <Route path="/employee/rewards" element={<PortalRewardsPage />} />
           <Route path="/employee/settings" element={<PortalSettingsPage />} />
         </Route>
 

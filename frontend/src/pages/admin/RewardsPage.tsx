@@ -4,11 +4,12 @@ import { stagger, fadeUp } from "@/lib/animations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Gift, Plus, Trophy, Star, Award, X, Trash2 } from "lucide-react";
+import { Plus, Trophy, Star, Award, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useReward } from "@/context/RewardContext";
 import { useAuth, UserRole } from "@/context/AuthContext";
-import type { RewardFormat } from "@/context/RewardContext";
+import type { ManagedRewardFormat, RewardFormat } from "@/context/RewardContext";
+import { Switch } from "@/components/ui/switch";
 
 const FORMAT_LABELS: Record<RewardFormat, string> = {
   bonus: "Bonus",
@@ -21,7 +22,6 @@ const rewardTypes = [
   { icon: Trophy, label: "Bonus", color: "bg-primary/10 text-primary" },
   { icon: Award, label: "Certificate", color: "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400" },
   { icon: Star, label: "Recognition", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400" },
-  { icon: Gift, label: "Gift", color: "bg-destructive/10 text-destructive" },
 ];
 
 function rewardTargetLabel(
@@ -38,7 +38,7 @@ function rewardTargetLabel(
 }
 
 export default function RewardsPage() {
-  const { rewards, createReward, deleteReward } = useReward();
+  const { rewards, formatConfigs, createReward, deleteReward, setFormatActive } = useReward();
   const { users } = useAuth();
   const teamForRewards = users.filter((u) => u.role === "employee" || u.role === "controller");
 
@@ -47,13 +47,14 @@ export default function RewardsPage() {
     title: "",
     description: "",
     imageUrl: "",
-    rewardType: "recognition" as RewardFormat,
+    rewardType: "recognition" as ManagedRewardFormat,
     eligibleRole: "All" as UserRole | "All",
     eligibleEmployeeId: ""
   });
 
   const openAdd = () => {
-    setForm({ title: "", description: "", imageUrl: "", rewardType: "recognition", eligibleRole: "All", eligibleEmployeeId: "" });
+    const firstActive = formatConfigs.find((f) => f.isActive)?.format || "recognition";
+    setForm({ title: "", description: "", imageUrl: "", rewardType: firstActive, eligibleRole: "All", eligibleEmployeeId: "" });
     setShowModal(true);
   };
 
@@ -85,6 +86,11 @@ export default function RewardsPage() {
     else toast.error(res.error);
   };
 
+  const onToggleFormat = async (format: ManagedRewardFormat, isActive: boolean) => {
+    const res = await setFormatActive(format, isActive);
+    if (!res.success) toast.error(res.error || "Failed to update format");
+  };
+
   return (
     <>
       <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
@@ -107,8 +113,13 @@ export default function RewardsPage() {
               <div className={`mb-3 inline-flex rounded-xl p-2.5 ${type.color}`}>
                 <type.icon className="h-5 w-5" />
               </div>
-              <p className="text-2xl font-bold text-foreground">Active</p>
-              <p className="text-xs text-muted-foreground">{type.label} format</p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">{type.label} format</p>
+                <Switch
+                  checked={formatConfigs.find((f) => f.format === type.label.toLowerCase())?.isActive ?? true}
+                  onCheckedChange={(checked) => onToggleFormat(type.label.toLowerCase() as ManagedRewardFormat, checked)}
+                />
+              </div>
             </div>
           ))}
         </motion.div>
@@ -201,10 +212,13 @@ export default function RewardsPage() {
                       onChange={(e) => setForm({ ...form, rewardType: e.target.value as RewardFormat })}
                       className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                     >
-                      <option value="bonus">Bonus</option>
-                      <option value="certificate">Certificate</option>
-                      <option value="recognition">Recognition</option>
-                      <option value="gift">Gift</option>
+                      {formatConfigs
+                        .filter((f) => f.isActive)
+                        .map((f) => (
+                          <option key={f.format} value={f.format}>
+                            {FORMAT_LABELS[f.format as RewardFormat]}
+                          </option>
+                        ))}
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-3 mt-1">
