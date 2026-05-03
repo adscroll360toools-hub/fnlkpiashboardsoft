@@ -22,6 +22,7 @@ const userSchema = new mongoose.Schema(
     score: { type: Number, default: 0 },
     companyId: { type: String, default: null },
     companyRoleId: { type: String, default: null },
+    profilePhotoUrl: { type: String, default: null },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },

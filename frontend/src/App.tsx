@@ -31,6 +31,7 @@ import RewardsPage from "./pages/admin/RewardsPage";
 import SkillsPage from "./pages/admin/SkillsPage";
 import StandupsPage from "./pages/admin/StandupsPage";
 import NotesPage from "./pages/admin/NotesPage";
+import TaskCategoriesPage from "./pages/admin/TaskCategoriesPage";
 import UserManagementPage from "./pages/admin/UserManagementPage";
 import RolesPage from "./pages/admin/RolesPage";
 import AttendanceControlPage from "./pages/admin/AttendanceControlPage";
@@ -113,6 +114,7 @@ function AppRoutes() {
           <Route path="/admin/skills" element={<SkillsPage />} />
           <Route path="/admin/standups" element={<StandupsPage />} />
           <Route path="/admin/notes" element={<NotesPage />} />
+          <Route path="/admin/categories" element={<TaskCategoriesPage />} />
         </Route>
 
         {/* ── Controller portal ────────────────────────────────── */}

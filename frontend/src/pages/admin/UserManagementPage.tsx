@@ -5,7 +5,7 @@ import { useAuth, AppUser, UserRole } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import {
     Plus, X, Shield, Users, UserCircle, Trash2, Key,
     Eye, EyeOff, MoreHorizontal, Edit, Search,
@@ -191,6 +191,7 @@ export default function UserManagementPage() {
                     <table className="w-full">
                         <thead>
                             <tr className="border-b">
+                                <th className="w-12 px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground rounded-tl-2xl" aria-hidden />
                                 <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">User</th>
                                 <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden sm:table-cell">Role</th>
                                 <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden md:table-cell">Department</th>
@@ -204,9 +205,11 @@ export default function UserManagementPage() {
                                     const Icon = meta.icon;
                                     return (
                                         <motion.tr key={user.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="border-b last:border-0 transition-colors hover:bg-muted/50">
+                                            <td className="px-4 py-3 align-middle">
+                                              <UserAvatar name={user.name} photoUrl={user.profilePhotoUrl} />
+                                            </td>
                                             <td className="px-5 py-3">
                                                 <div className="flex items-center gap-3">
-                                                    <Avatar className="h-8 w-8"><AvatarFallback className={`text-xs font-medium ${meta.bg} ${meta.color}`}>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar>
                                                     <div><p className="text-sm font-medium text-foreground">{user.name}</p><p className="text-xs text-muted-foreground">{user.email}</p></div>
                                                 </div>
                                             </td>

@@ -19,6 +19,18 @@ const companySchema = new mongoose.Schema(
     industry: { type: String, trim: true },
     website: { type: String, trim: true },
     employeeLimit: { type: Number, default: 50 },
+    taskCategories: {
+      type: [String],
+      default: () => [
+        'Social Media',
+        'Video SEO',
+        'Thumbnail Design',
+        'Shorts Editing',
+        'Admin Support',
+        'Marketing',
+        'Strategy',
+      ],
+    },
     attendanceSettings: {
       type: mongoose.Schema.Types.Mixed,
       default: () => ({
@@ -41,7 +53,9 @@ const companySchema = new mongoose.Schema(
       default: () => ({
         start: '09:00',
         end: '18:00',
-        workingDaysPerMonth: 8,
+        workingDaysPerMonth: 22,
+        /** Scheduled hours per working day (capacity); new companies default to 24 */
+        hoursPerDay: 24,
         standupTime: '09:35',
       }),
     },

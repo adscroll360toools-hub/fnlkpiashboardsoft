@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { useAttendance } from "@/context/AttendanceContext";
 import { useMemo } from "react";
+import { UserAvatar } from "@/components/UserAvatar";
 
 const statusBadge: Record<string, string> = {
   Present: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
@@ -29,6 +30,7 @@ export function LiveAttendanceWidget() {
         return {
             id: u.id,
             name: u.name,
+            profilePhotoUrl: u.profilePhotoUrl,
             checkIn: rec?.checkInTime || "—",
             checkOut: rec?.checkOutTime || "—",
             status: rec?.status || "—",
@@ -53,7 +55,12 @@ export function LiveAttendanceWidget() {
                     <tbody>
                         {todayRecords.map((r) => (
                             <tr key={r.id} className="border-b last:border-0 hover:bg-muted/40 transition-colors">
-                                <td className="px-5 py-3 text-sm font-medium text-foreground">{r.name}</td>
+                                <td className="px-5 py-3">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <UserAvatar name={r.name} photoUrl={r.profilePhotoUrl} />
+                                        <span className="text-sm font-medium text-foreground truncate">{r.name}</span>
+                                    </div>
+                                </td>
                                 <td className="px-5 py-3 text-sm font-tabular text-muted-foreground">{r.checkIn}</td>
                                 <td className="px-5 py-3 text-sm font-tabular text-muted-foreground">{r.checkOut}</td>
                                 <td className="px-5 py-3">

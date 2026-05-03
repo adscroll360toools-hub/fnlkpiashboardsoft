@@ -31,7 +31,9 @@ const defaultAttendanceSettings = {
 const defaultWorkingHours = {
   start: "09:00",
   end: "18:00",
-  workingDaysPerMonth: 8,
+  workingDaysPerMonth: 22,
+  /** Scheduled hours per working day — legacy tenants often omit this key (treated as 8 elsewhere). */
+  hoursPerDay: 8,
   standupTime: "09:35",
 };
 
@@ -149,10 +151,15 @@ export default function SettingsPage() {
           });
         }
         if (w && typeof w === "object") {
+          const hpd = Number(w.hoursPerDay);
           setHours({
             start: typeof w.start === "string" ? w.start : defaultWorkingHours.start,
             end: typeof w.end === "string" ? w.end : defaultWorkingHours.end,
             workingDaysPerMonth: Math.max(1, Number(w.workingDaysPerMonth) || defaultWorkingHours.workingDaysPerMonth),
+            hoursPerDay:
+              Number.isFinite(hpd) && hpd >= 1 && hpd <= 24
+                ? Math.round(hpd)
+                : defaultWorkingHours.hoursPerDay,
             standupTime: typeof w.standupTime === "string" ? w.standupTime : defaultWorkingHours.standupTime,
           });
         }
@@ -172,12 +179,21 @@ export default function SettingsPage() {
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [pwError, setPwError] = useState("");
 
+  const [hoursPerDayError, setHoursPerDayError] = useState("");
+
   const handleSave = async () => {
     if (!currentUser) return;
+    const hpd = Number(hours.hoursPerDay);
+    if (!Number.isFinite(hpd) || hpd < 1 || hpd > 24 || !Number.isInteger(hpd)) {
+      setHoursPerDayError("Working hours per day must be a whole number between 1 and 24.");
+      toast.error("Invalid working hours", { description: "Use an integer from 1 to 24." });
+      return;
+    }
+    setHoursPerDayError("");
     await updateUser(currentUser.id, profile);
     if (currentUser.role === "admin" && currentUser.companyId) {
       await api.tenantCompany.patch(currentUser.companyId, {
-        workingHours: hours,
+        workingHours: { ...hours, hoursPerDay: hpd },
         actorUserId: currentUser.id,
       });
     }
@@ -579,7 +595,7 @@ export default function SettingsPage() {
             <div>
               <h2 className="text-base font-semibold text-foreground">Working Hours</h2>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Saved with your profile. Working days/month is used on the attendance page for all employees and controllers.
+                Saved with your company. Working days/month feeds attendance; hours/day drives capacity and workload baselines.
               </p>
             </div>
           </div>
@@ -616,6 +632,24 @@ export default function SettingsPage() {
                 }
                 className="h-11 rounded-lg border border-border/60 bg-muted/50 text-sm font-tabular-nums"
               />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label className="text-sm font-medium text-foreground">Working Hours per Day</Label>
+              <Input
+                type="number"
+                min={1}
+                max={24}
+                step={1}
+                value={hours.hoursPerDay ?? 8}
+                onChange={(e) => {
+                  setHoursPerDayError("");
+                  const n = parseInt(e.target.value, 10);
+                  if (!Number.isNaN(n)) setHours({ ...hours, hoursPerDay: Math.min(24, Math.max(1, n)) });
+                }}
+                className="h-11 rounded-lg border border-border/60 bg-muted/50 text-sm font-tabular-nums"
+              />
+              {hoursPerDayError ? <p className="text-xs text-destructive">{hoursPerDayError}</p> : null}
+              <p className="text-[11px] text-muted-foreground">Integer 1–24. Used for productivity and capacity displays.</p>
             </div>
             <div className="space-y-2">
               <Label className="text-sm font-medium text-foreground">Standup Time</Label>

@@ -1,7 +1,7 @@
 # Render Blueprint — https://render.com/docs/blueprint-spec
 #
 # Deploy: https://dashboard.render.com → New + → Blueprint
-# Paste repo: https://github.com/adscroll360toools-hub/FNLKPIDashboardSoft
+# Paste repo: https://github.com/adscroll360toools-hub/fnlkpiashboardsoft
 #
 # After the API is live, deploy the Vite app on Vercel (or Render Static Site)
 # with root directory "frontend", build "npm run build", output "dist", and set:

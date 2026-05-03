@@ -63,7 +63,7 @@ router.patch('/:id', async (req, res, next) => {
   try {
     const { companyId } = req.body;
     if (!companyId) return res.status(400).json({ error: 'companyId is required' });
-    const allowed = ['name', 'email', 'password', 'role', 'department', 'position', 'score', 'companyRoleId'];
+    const allowed = ['name', 'email', 'password', 'role', 'department', 'position', 'score', 'companyRoleId', 'profilePhotoUrl'];
     const updates = {};
     allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
 

@@ -63,3 +63,14 @@ export function visibleTasksForUser(tasks: AppTask[], userId: string | undefined
   if (scope === "company") return tasks;
   return tasks.filter((t) => isTaskAssignedTo(t, userId));
 }
+
+/** Daily / recurring tasks — distinct styling (WCAG-friendly contrast on body text). */
+export function isDailyTaskRow(t: AppTask): boolean {
+  return t.taskKind === "daily";
+}
+
+export const DAILY_TASK_SURFACE_CLASS =
+  "border-l-[4px] border-l-teal-600 bg-teal-50/90 dark:border-l-teal-500 dark:bg-teal-950/30";
+
+export const DAILY_TASK_BADGE_CLASS =
+  "rounded-full bg-teal-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white dark:bg-teal-600";

@@ -13,6 +13,7 @@ import { useAttendance, AttendanceStatus } from "@/context/AttendanceContext";
 import { getEffectivePermissions } from "@/lib/permissions";
 import { companyOperationalTeam } from "@/lib/companyTeam";
 import { api } from "@/lib/api";
+import { getHoursPerDay } from "@/lib/workingHours";
 
 // Types
 type MyAttendanceState = "not-checked-in" | "checked-in" | "on-break" | "checked-out";
@@ -54,6 +55,7 @@ export default function AttendancePage() {
   const [breakDuration, setBreakDuration] = useState("");
   const [teamTimeFilter, setTeamTimeFilter] = useState<TeamTimeFilter>("Daily");
   const [companyWorkingDays, setCompanyWorkingDays] = useState<number | null>(null);
+  const [companyHoursPerDay, setCompanyHoursPerDay] = useState<number | null>(null);
 
   const today = useMemo(() => {
     const now = new Date();
@@ -71,6 +73,9 @@ export default function AttendancePage() {
         const value = Number(company?.workingHours?.workingDaysPerMonth);
         if (!cancelled && Number.isFinite(value) && value > 0) {
           setCompanyWorkingDays(Math.floor(value));
+        }
+        if (!cancelled) {
+          setCompanyHoursPerDay(getHoursPerDay(company?.workingHours));
         }
       } catch {
         /* keep fallback */
@@ -258,7 +263,7 @@ export default function AttendancePage() {
 
       {/* My stats */}
       <motion.div variants={fadeUp} className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard title="This Month" value={`${totalAttended}/${currentMonthWorkingDays}`} subtitle="days present" icon={CalendarClock} />
+        <StatCard title="This Month" value={`${totalAttended}/${currentMonthWorkingDays}`} subtitle={companyHoursPerDay != null ? `days present · ${companyHoursPerDay}h/day company baseline` : "days present"} icon={CalendarClock} />
         <StatCard title="On Time" value={`${onTimePercent}%`} subtitle="arrival rate" icon={Clock} variant="primary" />
         <StatCard title="Late Days" value={monthLate.toString()} subtitle="this month" icon={CalendarClock} />
         <StatCard title="Leaves" value={monthLeave.toString()} subtitle="this month" icon={CalendarClock} />

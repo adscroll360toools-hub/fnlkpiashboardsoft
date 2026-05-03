@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Save, Bell, Shield, Clock, Key, X, Eye, EyeOff } from "lucide-react";
+import { ProfilePhotoUploader } from "@/components/ProfilePhotoUploader";
 import { toast } from "sonner";
 
 export default function PortalSettingsPage() {
@@ -71,6 +72,17 @@ export default function PortalSettingsPage() {
                     <div className="flex items-center gap-2 mb-2">
                         <Shield className="h-4 w-4 text-muted-foreground" />
                         <h2 className="text-base font-semibold text-foreground">Profile</h2>
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                        <p className="mb-2 text-xs font-medium text-muted-foreground">Profile photo</p>
+                        <ProfilePhotoUploader
+                            name={currentUser?.name ?? ""}
+                            photoUrl={currentUser?.profilePhotoUrl}
+                            onSavedUrl={(url) => {
+                                if (!currentUser) return;
+                                void updateUser(currentUser.id, { profilePhotoUrl: url ?? null });
+                            }}
+                        />
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2">

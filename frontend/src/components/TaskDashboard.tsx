@@ -4,7 +4,7 @@ import { Calendar, AlertTriangle, ListTodo } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useTask, AppTask } from "@/context/TaskContext";
 import { fadeUp } from "@/lib/animations";
-import { bucketForTask, isTaskCompleted, formatDelayLabel } from "@/lib/taskHelpers";
+import { bucketForTask, isTaskCompleted, formatDelayLabel, isDailyTaskRow, DAILY_TASK_SURFACE_CLASS, DAILY_TASK_BADGE_CLASS } from "@/lib/taskHelpers";
 
 type Scope = "self" | "company";
 
@@ -31,14 +31,18 @@ const sectionStyles = {
 
 function TaskRow({ task, showAssignee }: { task: AppTask; showAssignee: boolean }) {
   const overdue = bucketForTask(task) === "expired";
+  const daily = isDailyTaskRow(task);
   return (
     <div
-      className={`flex items-center justify-between gap-3 rounded-xl border bg-card px-3 py-2.5 text-sm transition-colors ${
-        overdue ? "ring-1 ring-rose-300/80 dark:ring-rose-800" : "hover:bg-muted/50"
-      }`}
+      className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors ${
+        daily ? `${DAILY_TASK_SURFACE_CLASS} border-teal-600/25` : "border bg-card"
+      } ${overdue ? "ring-1 ring-rose-300/80 dark:ring-rose-800" : "hover:bg-muted/50"}`}
     >
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium text-foreground">{task.title}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="truncate font-medium text-foreground">{task.title}</p>
+          {daily ? <span className={DAILY_TASK_BADGE_CLASS}>Daily</span> : null}
+        </div>
         <p className="text-xs text-muted-foreground">
           {showAssignee && <span className="font-medium text-foreground/80">{task.assigneeName} · </span>}
           {task.category}

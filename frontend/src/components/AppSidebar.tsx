@@ -14,6 +14,7 @@ import {
   UserCog,
   UserCheck,
   Tags,
+  Layers,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -50,6 +51,7 @@ const adminNav = [
   { title: "Skill Growth", url: "/admin/skills", icon: BookOpen },
   { title: "Standups", url: "/admin/standups", icon: MessageSquare },
   { title: "Notes", url: "/admin/notes", icon: StickyNote },
+  { title: "Categories", url: "/admin/categories", icon: Layers },
 ];
 
 export function AppSidebar() {

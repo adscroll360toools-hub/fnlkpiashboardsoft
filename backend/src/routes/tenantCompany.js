@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import Company from '../models/Company.js';
-import { canEditCompanySettings, resolveActor } from '../utils/companyPermissions.js';
+import { canEditCompanySettings, canEditTaskCategories, resolveActor } from '../utils/companyPermissions.js';
 
 const router = Router();
 
@@ -23,16 +23,25 @@ router.patch('/:companyId', async (req, res, next) => {
     const { actorUserId } = req.body;
     if (!actorUserId) return res.status(400).json({ error: 'actorUserId is required' });
     const actor = await resolveActor(req.params.companyId, actorUserId);
-    if (!canEditCompanySettings(actor)) {
-      return res.status(403).json({ error: 'Only company admin can edit company settings' });
+    if (!actor?.user) {
+      return res.status(403).json({ error: 'Actor not found in this company' });
     }
-    const allowed = ['attendanceSettings', 'workingHours', 'name', 'industry', 'website'];
+    const allowed = ['attendanceSettings', 'workingHours', 'name', 'industry', 'website', 'taskCategories'];
     const updates = {};
     for (const k of allowed) {
       if (req.body[k] !== undefined) updates[k] = req.body[k];
     }
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'No valid fields' });
+    }
+    const keys = Object.keys(updates);
+    const onlyTaskCategories = keys.length === 1 && keys[0] === 'taskCategories';
+    if (onlyTaskCategories) {
+      if (!canEditTaskCategories(actor)) {
+        return res.status(403).json({ error: 'Only admin or controller can edit task categories' });
+      }
+    } else if (!canEditCompanySettings(actor)) {
+      return res.status(403).json({ error: 'Only company admin can edit company settings' });
     }
     const company = await Company.findByIdAndUpdate(req.params.companyId, { $set: updates }, { new: true, runValidators: true }).select('-adminPassword');
     if (!company) return res.status(404).json({ error: 'Company not found' });

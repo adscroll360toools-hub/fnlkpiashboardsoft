@@ -43,3 +43,10 @@ export function canEditCompanySettings(actor) {
   if (!actor?.user) return false;
   return actor.user.role === 'admin' || actor.user.role === 'super_admin';
 }
+
+/** Task category list on the company — admins and controllers may update. */
+export function canEditTaskCategories(actor) {
+  if (!actor?.user) return false;
+  const r = actor.user.role;
+  return r === 'admin' || r === 'super_admin' || r === 'controller';
+}

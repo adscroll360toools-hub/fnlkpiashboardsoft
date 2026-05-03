@@ -88,8 +88,22 @@ router.post('/companies', async (req, res, next) => {
     const existingUser = await User.findOne({ email: adminEmail.toLowerCase() });
     if (existingUser) return res.status(409).json({ error: 'Email already in use by another user' });
 
-    // Create company
-    const company = await Company.create({ name, adminEmail, adminPassword, plan: plan || 'Starter', industry, website });
+    // Create company — new tenants get default working capacity (hours/day = 24 per product default)
+    const company = await Company.create({
+      name,
+      adminEmail,
+      adminPassword,
+      plan: plan || 'Starter',
+      industry,
+      website,
+      workingHours: {
+        start: '09:00',
+        end: '18:00',
+        workingDaysPerMonth: 22,
+        hoursPerDay: 24,
+        standupTime: '09:35',
+      },
+    });
 
     // Create company admin user
     await User.create({

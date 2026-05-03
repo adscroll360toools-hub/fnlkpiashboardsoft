@@ -4,7 +4,8 @@ import { stagger, fadeUp } from "@/lib/animations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/UserAvatar";
+import { ProfilePhotoUploader } from "@/components/ProfilePhotoUploader";
 import { Plus, Search, MoreHorizontal, X, Trash2, Edit, Award, Star } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth, AppUser, UserRole } from "@/context/AuthContext";
@@ -170,6 +171,7 @@ export default function EmployeesPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b">
+                  <th className="w-12 px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground" aria-hidden />
                   <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Employee</th>
                   <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden sm:table-cell">App Role</th>
                   <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden md:table-cell">Department</th>
@@ -184,17 +186,13 @@ export default function EmployeesPage() {
                   
                   return (
                     <tr key={emp.id} className="border-b last:border-0 transition-colors hover:bg-muted/50 group">
+                      <td className="px-4 py-3 align-middle">
+                        <UserAvatar name={emp.name} photoUrl={emp.profilePhotoUrl} />
+                      </td>
                       <td className="px-5 py-3">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
-                              {emp.name.slice(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="text-sm font-medium text-foreground">{emp.name}</p>
-                            <p className="text-[10px] text-muted-foreground">{emp.position}</p>
-                          </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{emp.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{emp.position}</p>
                         </div>
                       </td>
                       <td className="px-5 py-3 text-sm text-muted-foreground hidden sm:table-cell capitalize font-medium">{emp.role}</td>
@@ -307,6 +305,16 @@ export default function EmployeesPage() {
                   <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+                  {editTarget ? (
+                    <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">Profile photo</p>
+                      <ProfilePhotoUploader
+                        name={editTarget.name}
+                        photoUrl={editTarget.profilePhotoUrl}
+                        onSavedUrl={(url) => void updateUser(editTarget.id, { profilePhotoUrl: url ?? null })}
+                      />
+                    </div>
+                  ) : null}
                   <div className="space-y-1.5"><Label>Full Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="h-9" /></div>
                   <div className="space-y-1.5"><Label>Email</Label><Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="h-9" /></div>
                   <div className="grid grid-cols-2 gap-3">

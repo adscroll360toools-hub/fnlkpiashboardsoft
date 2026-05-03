@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { getHoursPerDay } from "@/lib/workingHours";
 import { Button } from "@/components/ui/button";
 
 export default function TaskAnalyticsPage() {
@@ -19,6 +20,7 @@ export default function TaskAnalyticsPage() {
   const [range, setRange] = useState("month");
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [hoursPerDay, setHoursPerDay] = useState<number | null>(null);
 
   useEffect(() => {
     if (!currentUser?.companyId && currentUser?.role !== 'super_admin') return;
@@ -32,6 +34,15 @@ export default function TaskAnalyticsPage() {
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
   }, [range, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser?.companyId) return;
+    let cancelled = false;
+    api.tenantCompany.get(currentUser.companyId).then(({ company }) => {
+      if (!cancelled) setHoursPerDay(getHoursPerDay(company?.workingHours));
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [currentUser?.companyId]);
 
   if (loading) {
     return (
@@ -94,10 +105,10 @@ export default function TaskAnalyticsPage() {
           </div>
         </div>
         <div className="bg-slate-900 border border-white/5 p-6 rounded-2xl">
-          <div className="text-slate-500 text-sm font-medium mb-2">Avg. Completion Time</div>
-          <div className="text-3xl font-bold text-white mb-2">4.2h</div>
-          <div className="flex items-center gap-1 text-amber-400 text-xs">
-            <ArrowDownRight className="w-3 h-3" /> -10m improvement
+          <div className="text-slate-500 text-sm font-medium mb-2">Working hours / day (capacity)</div>
+          <div className="text-3xl font-bold text-white mb-2">{hoursPerDay != null ? `${hoursPerDay}h` : "—"}</div>
+          <div className="flex items-center gap-1 text-slate-400 text-xs">
+            Company setting · drives workload baselines
           </div>
         </div>
       </div>

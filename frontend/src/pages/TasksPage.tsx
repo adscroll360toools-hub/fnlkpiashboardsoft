@@ -1,22 +1,42 @@
 import { useState, useRef, useEffect, useMemo, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Plus, Clock, CheckCircle2, AlertCircle, Eye,
-  Trash2, X, ChevronDown, User, MessageCircle, Link as LinkIcon, FileText, Send,
-  LayoutGrid, List,
+  Plus, Clock, CheckCircle2, AlertCircle,
+  Trash2, X, ChevronDown, Link as LinkIcon, FileText,
+  LayoutGrid, List, CalendarDays, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
 import { stagger, fadeUp } from "@/lib/animations";
 import { useTask, AppTask, TaskStatus, TaskKind, TaskPriority } from "@/context/TaskContext";
 import { useAuth } from "@/context/AuthContext";
 import { getEffectivePermissions } from "@/lib/permissions";
-import { isTaskOverdue, endOfToday, isTaskAssignedTo } from "@/lib/taskHelpers";
+import {
+  isTaskOverdue,
+  endOfToday,
+  isTaskAssignedTo,
+  isDailyTaskRow,
+  DAILY_TASK_SURFACE_CLASS,
+  DAILY_TASK_BADGE_CLASS,
+} from "@/lib/taskHelpers";
 import { useOutsideClick } from "@/hooks/useOutsideClick";
 import { toast } from "sonner";
-
-const CATEGORIES = ["Social Media", "Video SEO", "Thumbnail Design", "Shorts Editing", "Admin Support", "Marketing", "Strategy"];
+import { api } from "@/lib/api";
+import { AssignmentTimeField, formatTimeForTag } from "@/components/AssignmentTimeField";
+import { TaskDiscussionPanel } from "@/components/TaskDiscussionPanel";
+import { UserAvatar } from "@/components/UserAvatar";
+const FALLBACK_CATEGORIES = [
+  "Social Media",
+  "Video SEO",
+  "Thumbnail Design",
+  "Shorts Editing",
+  "Admin Support",
+  "Marketing",
+  "Strategy",
+];
 const STATUSES: TaskStatus[] = ["Pending", "In Progress", "Completed", "Approved"];
 const PRIORITIES: TaskPriority[] = ["Low", "Medium", "High"];
 
@@ -34,80 +54,6 @@ const statusConfig = {
 };
 
 type FilterTab = "All" | TaskStatus;
-
-// --- Sub-component: ChatBox (Isolated for performance) ---
-const ChatBox = memo(({ taskId, messages, currentUser, onClose }: { taskId: string, messages: any[], currentUser: any, onClose: () => void }) => {
-    const { addMessage } = useTask();
-    const [chatMsg, setChatMsg] = useState("");
-    const scrollRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }, [messages.length]);
-
-    const handleSend = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!chatMsg.trim()) return;
-        const res = await addMessage(taskId, chatMsg);
-        if (res.success) setChatMsg("");
-        else toast.error(res.error);
-    };
-
-    const scrollToTop = () => {
-      if (!scrollRef.current) return;
-      scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
-    };
-
-    const scrollToBottom = () => {
-      if (!scrollRef.current) return;
-      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-    };
-
-    return (
-      <div className="w-full md:w-1/2 flex min-h-0 flex-col border-t md:border-t-0 md:border-l">
-          <div className="p-4 border-b flex justify-between items-center bg-card/50">
-              <h3 className="font-semibold flex items-center gap-2"><MessageCircle className="h-4 w-4"/> Task Discussion</h3>
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Close discussion"
-                title="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-          </div>
-          <div ref={scrollRef} className="flex-1 min-h-0 p-4 overflow-y-auto space-y-3 bg-muted/5 scroll-smooth">
-              {messages.length === 0 ? (
-                  <div className="text-center text-muted-foreground text-sm mt-10">No messages yet. Send a message to start discussion.</div>
-              ) : (
-                  messages.map(msg => {
-                      const isMe = msg.senderId === currentUser?.id;
-                      return (
-                          <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                              <div className={`px-3 py-2 rounded-xl text-sm max-w-[85%] ${isMe ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                                  {msg.text}
-                              </div>
-                              <div className="text-[10px] text-muted-foreground mt-1 mx-1">
-                                  {!isMe && <span className="font-semibold">{msg.senderName} • </span>}
-                                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </div>
-                          </div>
-                      )
-                  })
-              )}
-          </div>
-          <div className="px-3 py-1 border-t bg-card/70 flex items-center justify-end gap-2">
-            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={scrollToTop}>Top</Button>
-            <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={scrollToBottom}>Bottom</Button>
-          </div>
-          <form onSubmit={handleSend} className="p-3 border-t bg-card flex gap-2">
-              <Input value={chatMsg} onChange={e=>setChatMsg(e.target.value)} placeholder="Type a message..." className="flex-1 h-9 rounded-full px-4" />
-              <Button type="submit" size="icon" className="h-9 w-9 rounded-full shrink-0"><Send className="h-4 w-4"/></Button>
-          </form>
-      </div>
-    );
-});
 
 // --- Sub-component: ProofSection (Isolated for performance) ---
 const ProofSection = memo(({ task, currentUser }: { task: AppTask, currentUser: any }) => {
@@ -157,8 +103,8 @@ const ProofSection = memo(({ task, currentUser }: { task: AppTask, currentUser: 
 
 export default function TasksPage() {
   const { currentUser, users, companyRoles } = useAuth();
-  const { tasks, createTask, updateTaskStatus, deleteTask, refreshTasks } = useTask();
-  const [viewMode, setViewMode] = useState<"table" | "board">("table");
+  const { tasks, createTask, updateTaskStatus, deleteTask, refreshTasks, patchTask } = useTask();
+  const [viewMode, setViewMode] = useState<"table" | "board" | "calendar">("table");
   const perms = getEffectivePermissions(currentUser, companyRoles);
   const assignees = useMemo(() => {
     const pool = users.filter((u) => u.role !== "admin");
@@ -180,14 +126,25 @@ export default function TasksPage() {
 
   const selectedTask = useMemo(() => selectedTaskId ? tasks.find(t => t.id === selectedTaskId) : null, [selectedTaskId, tasks]);
 
+  const [categories, setCategories] = useState<string[]>(FALLBACK_CATEGORIES);
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
+
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => new Date());
+  const [selectedCalDay, setSelectedCalDay] = useState<Date | undefined>(() => new Date());
+
+  const [formTimeUse12h, setFormTimeUse12h] = useState(false);
+  const [editTimeUse12h, setEditTimeUse12h] = useState(false);
+
   const [form, setForm] = useState({
     title: "",
-    category: CATEGORIES[0],
+    category: FALLBACK_CATEGORIES[0],
     assignedToId: "",
     assignmentMode: "individual" as "individual" | "group",
     groupAssigneeIds: [] as string[],
     status: "Pending" as TaskStatus,
-    time: "",
+    assignedTime24: "",
     notes: "",
     taskKind: "one_time" as TaskKind,
     deadlineLocal: "",
@@ -196,22 +153,61 @@ export default function TasksPage() {
     dependsOnTaskId: "",
   });
 
+  const [editModalTaskId, setEditModalTaskId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    category: FALLBACK_CATEGORIES[0],
+    assignedToId: "",
+    assignmentMode: "individual" as "individual" | "group",
+    groupAssigneeIds: [] as string[],
+    taskKind: "one_time" as TaskKind,
+    deadlineLocal: "",
+    assignedTime24: "",
+    notes: "",
+    priority: "Medium" as TaskPriority,
+    tagsStr: "",
+    dependsOnTaskId: "",
+  });
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!currentUser?.companyId) return;
+    let cancelled = false;
+    api.tenantCompany
+      .get(currentUser.companyId)
+      .then(({ company }) => {
+        if (cancelled) return;
+        const list = Array.isArray(company?.taskCategories) ? company.taskCategories.filter(Boolean) : [];
+        if (list.length) setCategories(list);
+        else setCategories([...FALLBACK_CATEGORIES]);
+      })
+      .catch(() => {
+        if (!cancelled) setCategories([...FALLBACK_CATEGORIES]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.companyId]);
+
   useOutsideClick(statusMenuRef, () => setOpenStatusMenu(null));
 
   const filtered = (activeFilter === "All" ? tasks : tasks.filter((t) => t.status === activeFilter)).filter((t) =>
     currentUser?.role === "employee" && currentUser.id ? isTaskAssignedTo(t, currentUser.id) : true
   );
 
+  const cat0 = categories[0] || FALLBACK_CATEGORIES[0];
+
   const handleOpen = () => {
     const first = assignees[0]?.id || "";
     setForm({
       title: "",
-      category: CATEGORIES[0],
+      category: cat0,
       assignedToId: first,
       assignmentMode: "individual",
       groupAssigneeIds: first ? [first] : [],
       status: "Pending",
-      time: "",
+      assignedTime24: "",
       notes: "",
       taskKind: "one_time",
       deadlineLocal: "",
@@ -219,9 +215,30 @@ export default function TasksPage() {
       tagsStr: "",
       dependsOnTaskId: "",
     });
+    setShowNewCategoryInput(false);
+    setNewCategoryName("");
     setShowModal(true);
   };
-  
+
+  const persistNewCategory = async (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed || categories.includes(trimmed)) return;
+    if (!currentUser?.companyId || !currentUser?.id) return;
+    setSavingCategory(true);
+    try {
+      await api.tenantCompany.patch(currentUser.companyId, {
+        taskCategories: [...categories, trimmed],
+        actorUserId: currentUser.id,
+      });
+      setCategories((c) => [...c, trimmed]);
+      toast.success("Category added");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Could not add category (admin or controller only).");
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim()) return toast.error("Task title is required.");
@@ -233,9 +250,9 @@ export default function TasksPage() {
     const kind = form.taskKind;
 
     if (kind === "daily") {
-      const d = form.deadlineLocal ? new Date(form.deadlineLocal) : endOfToday();
+      const d = endOfToday();
       deadlineAt = d.toISOString();
-      deadline = d.toLocaleString();
+      deadline = "Daily";
     } else if (kind === "deadline_based") {
       if (!form.deadlineLocal) return toast.error("Pick a deadline date and time.");
       const d = new Date(form.deadlineLocal);
@@ -264,25 +281,27 @@ export default function TasksPage() {
         ? namesForGroup.join(", ")
         : users.find((u) => u.id === aid)?.name || (currentUser?.role === "employee" ? currentUser!.name : "Unassigned");
     const tags = form.tagsStr.split(",").map((s) => s.trim()).filter(Boolean);
+    const assignedTime = form.assignedTime24.trim() || null;
     const res = await createTask({
-        title: form.title.trim(),
-        category: form.category,
-        assigneeId: aid,
-        assigneeName,
-        assigneeIds,
-        assignedById: currentUser!.id,
-        assignedByName: currentUser!.name,
-        type: isGroup ? "Group" : "Individual",
-        taskKind: kind,
-        deadlineAt,
-        status: form.status,
-        deadline,
-        timeSpent: "0m",
-        notes: form.notes,
-        priority: form.priority,
-        tags,
-        dependsOnTaskId: form.dependsOnTaskId || null,
-        recurring: { enabled: false, rule: "" },
+      title: form.title.trim(),
+      category: form.category,
+      assigneeId: aid,
+      assigneeName,
+      assigneeIds,
+      assignedById: currentUser!.id,
+      assignedByName: currentUser!.name,
+      type: isGroup ? "Group" : "Individual",
+      taskKind: kind,
+      deadlineAt,
+      status: form.status,
+      deadline,
+      timeSpent: "0m",
+      notes: form.notes,
+      assignedTime,
+      priority: form.priority,
+      tags,
+      dependsOnTaskId: form.dependsOnTaskId || null,
+      recurring: { enabled: false, rule: "" },
     });
     if (res.success) {
       setShowModal(false);
@@ -290,6 +309,124 @@ export default function TasksPage() {
       await refreshTasks();
     } else toast.error(res.error);
   };
+
+  const canEditTaskRow = (t: AppTask) =>
+    !!(perms.tasks_create || (currentUser?.id && isTaskAssignedTo(t, currentUser.id)));
+
+  const openEditModal = (task: AppTask, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!canEditTaskRow(task)) return;
+    const primary = task.assigneeId;
+    const mode: "individual" | "group" =
+      task.type === "Group" && (task.assigneeIds?.length || 0) > 1 ? "group" : "individual";
+    let deadlineLocal = "";
+    if (task.deadlineAt && task.taskKind !== "daily") {
+      const d = new Date(task.deadlineAt);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      deadlineLocal = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    setEditForm({
+      title: task.title,
+      category: task.category || cat0,
+      assignedToId: primary,
+      assignmentMode: mode,
+      groupAssigneeIds: mode === "group" && task.assigneeIds?.length ? [...task.assigneeIds] : primary ? [primary] : [],
+      taskKind: task.taskKind,
+      deadlineLocal,
+      assignedTime24: task.assignedTime?.trim() || "",
+      notes: task.notes || "",
+      priority: task.priority,
+      tagsStr: (task.tags || []).join(", "),
+      dependsOnTaskId: task.dependsOnTaskId || "",
+    });
+    setEditErrors({});
+    setEditModalTaskId(task.id);
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editModalTaskId || !currentUser) return;
+    const errs: Record<string, string> = {};
+    if (!editForm.title.trim()) errs.title = "Title is required.";
+    if (editForm.taskKind === "deadline_based" && !editForm.deadlineLocal) errs.deadline = "Deadline is required.";
+    if (Object.keys(errs).length) {
+      setEditErrors(errs);
+      return;
+    }
+    setEditSubmitting(true);
+    try {
+      let deadlineAt: string | null = null;
+      let deadline = "Flexible";
+      const kind = editForm.taskKind;
+      if (kind === "daily") {
+        const d = endOfToday();
+        deadlineAt = d.toISOString();
+        deadline = "Daily";
+      } else if (kind === "deadline_based") {
+        const d = new Date(editForm.deadlineLocal);
+        deadlineAt = d.toISOString();
+        deadline = d.toLocaleString();
+      } else if (editForm.deadlineLocal) {
+        const d = new Date(editForm.deadlineLocal);
+        deadlineAt = d.toISOString();
+        deadline = d.toLocaleString();
+      }
+
+      const isGroup = editForm.assignmentMode === "group";
+      const groupIds = isGroup ? editForm.groupAssigneeIds.filter(Boolean) : [];
+      const aid =
+        isGroup
+          ? groupIds[0] || currentUser.id
+          : editForm.assignedToId || currentUser.id;
+      const assigneeIds = isGroup && groupIds.length ? groupIds : aid ? [aid] : [];
+      const namesForGroup = assigneeIds
+        .map((id) => users.find((u) => u.id === id)?.name)
+        .filter(Boolean) as string[];
+      const assigneeName =
+        isGroup && namesForGroup.length
+          ? namesForGroup.join(", ")
+          : users.find((u) => u.id === aid)?.name || "Unassigned";
+
+      const tags = editForm.tagsStr.split(",").map((s) => s.trim()).filter(Boolean);
+      const res = await patchTask(editModalTaskId, {
+        title: editForm.title.trim(),
+        category: editForm.category,
+        assigneeId: aid,
+        assigneeName,
+        assigneeIds,
+        type: isGroup ? "Group" : "Individual",
+        taskKind: editForm.taskKind,
+        deadlineAt,
+        deadline,
+        assignedTime: editForm.assignedTime24.trim() || null,
+        notes: editForm.notes,
+        priority: editForm.priority,
+        tags,
+        dependsOnTaskId: editForm.dependsOnTaskId || null,
+      });
+      if (res.success) {
+        toast.success("Task updated");
+        setEditModalTaskId(null);
+        await refreshTasks();
+      } else toast.error(res.error || "Update failed");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const tasksForCalendarDay = useMemo(() => {
+    const map = new Map<string, AppTask[]>();
+    for (const t of filtered) {
+      const ms = t.deadlineAt ? new Date(t.deadlineAt).getTime() : NaN;
+      if (Number.isNaN(ms)) continue;
+      const d = new Date(ms);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const arr = map.get(key) || [];
+      arr.push(t);
+      map.set(key, arr);
+    }
+    return map;
+  }, [filtered]);
 
   const handleDeleteTask = async (e: React.MouseEvent, taskId: string) => {
     e.stopPropagation();
@@ -359,8 +496,78 @@ export default function TasksPage() {
             >
               <LayoutGrid className="h-3.5 w-3.5" /> Board
             </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("calendar")}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${viewMode === "calendar" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
+            >
+              <CalendarDays className="h-3.5 w-3.5" /> Calendar
+            </button>
           </div>
         </motion.div>
+
+        {viewMode === "calendar" && (
+          <motion.div variants={fadeUp} className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border bg-card p-4 shadow-card">
+              <Calendar
+                mode="single"
+                month={calendarMonth}
+                onMonthChange={setCalendarMonth}
+                selected={selectedCalDay}
+                onSelect={setSelectedCalDay}
+                className="mx-auto"
+              />
+            </div>
+            <div className="space-y-4 rounded-2xl border bg-card p-4 shadow-card">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">
+                  {selectedCalDay ? selectedCalDay.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) : "Pick a day"}
+                </h3>
+                <div className="mt-3 space-y-2">
+                  {(() => {
+                    if (!selectedCalDay) return <p className="text-sm text-muted-foreground">Select a date.</p>;
+                    const key = `${selectedCalDay.getFullYear()}-${String(selectedCalDay.getMonth() + 1).padStart(2, "0")}-${String(selectedCalDay.getDate()).padStart(2, "0")}`;
+                    const dayTasks = tasksForCalendarDay.get(key) || [];
+                    if (!dayTasks.length) {
+                      return <p className="text-sm text-muted-foreground">No scheduled deadline tasks on this day.</p>;
+                    }
+                    return dayTasks.map((task) => (
+                      <button
+                        key={task.id}
+                        type="button"
+                        onClick={() => setSelectedTaskId(task.id)}
+                        className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition hover:bg-muted/60 ${isDailyTaskRow(task) ? DAILY_TASK_SURFACE_CLASS : ""}`}
+                      >
+                        <span className="font-medium">{task.title}</span>
+                        {isDailyTaskRow(task) ? <span className={DAILY_TASK_BADGE_CLASS}>Daily</span> : null}
+                      </button>
+                    ));
+                  })()}
+                </div>
+              </div>
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-semibold text-foreground">Daily tasks</h3>
+                <div className="mt-2 space-y-2">
+                  {filtered.filter(isDailyTaskRow).length === 0 ? (
+                    <p className="text-sm text-muted-foreground">None</p>
+                  ) : (
+                    filtered.filter(isDailyTaskRow).map((task) => (
+                      <button
+                        key={task.id}
+                        type="button"
+                        onClick={() => setSelectedTaskId(task.id)}
+                        className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm ${DAILY_TASK_SURFACE_CLASS}`}
+                      >
+                        <span className="font-medium text-foreground">{task.title}</span>
+                        <span className={DAILY_TASK_BADGE_CLASS}>Daily</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {viewMode === "board" && (
           <motion.div variants={fadeUp} className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -381,12 +588,22 @@ export default function TasksPage() {
                         draggable
                         onDragStart={(e) => handleDragStart(e, task.id)}
                         onClick={() => setSelectedTaskId(task.id)}
-                        className={`cursor-grab active:cursor-grabbing rounded-xl border bg-card p-3 shadow-sm transition hover:shadow-md ${isTaskOverdue(task) ? "border-rose-300 dark:border-rose-800" : ""}`}
+                        className={`cursor-grab active:cursor-grabbing rounded-xl border p-3 shadow-sm transition hover:shadow-md ${
+                          isDailyTaskRow(task) ? DAILY_TASK_SURFACE_CLASS + " border-teal-600/30" : "border bg-card"
+                        } ${isTaskOverdue(task) ? "border-rose-300 dark:border-rose-800" : ""}`}
                       >
-                        <p className="text-sm font-medium text-foreground">{task.title}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-medium text-foreground">{task.title}</p>
+                          {isDailyTaskRow(task) ? <span className={DAILY_TASK_BADGE_CLASS}>Daily</span> : null}
+                        </div>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${priorityStyle[task.priority]}`}>{task.priority}</span>
                           <span className="text-[10px] text-muted-foreground">{task.assigneeName}</span>
+                          {task.assignedTime ? (
+                            <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+                              {formatTimeForTag(task.assignedTime, false)}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                     ))}
@@ -396,34 +613,54 @@ export default function TasksPage() {
           </motion.div>
         )}
 
-        <motion.div variants={fadeUp} className={`rounded-2xl bg-card shadow-card overflow-visible ${viewMode === "board" ? "hidden" : ""}`}>
+        <motion.div variants={fadeUp} className={`rounded-2xl bg-card shadow-card overflow-visible ${viewMode !== "table" ? "hidden" : ""}`}>
           <table className="w-full">
             <thead>
               <tr className="border-b">
-                <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground rounded-tl-2xl">Task Details</th>
+                <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground rounded-tl-2xl w-10" />
+                <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Task Details</th>
                 <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden md:table-cell">Priority</th>
                 <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Assignee</th>
                 <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Deadline</th>
                 <th className="px-5 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Status</th>
+                <th className="px-3 py-3 w-12 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Edit</th>
                 {perms.tasks_delete ? (
                   <th className="px-5 py-3 w-12 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground rounded-tr-2xl" />
                 ) : null}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((task) => (
+              {filtered.map((task) => {
+                const primaryAssignee = users.find((u) => u.id === task.assigneeId);
+                const dailyRow = isDailyTaskRow(task);
+                return (
                 <motion.tr key={task.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    className={`border-b last:border-0 transition-colors hover:bg-muted/50 group cursor-pointer ${isTaskOverdue(task) ? "bg-rose-50/80 dark:bg-rose-950/20" : ""}`}
+                    className={`border-b last:border-0 transition-colors hover:bg-muted/50 group cursor-pointer ${dailyRow ? DAILY_TASK_SURFACE_CLASS : ""} ${isTaskOverdue(task) ? "bg-rose-50/80 dark:bg-rose-950/20" : ""}`}
                     onClick={() => setSelectedTaskId(task.id)}>
+                    <td className="px-4 py-3 align-middle w-10">
+                      {isDailyTaskRow(task) ? <span className={DAILY_TASK_BADGE_CLASS}>Daily</span> : <span className="inline-block w-2 shrink-0" />}
+                    </td>
                     <td className="px-5 py-3">
-                        <p className="text-sm font-medium text-foreground">{task.title}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium text-foreground">{task.title}</p>
+                          {task.assignedTime ? (
+                            <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                              {formatTimeForTag(task.assignedTime, false)}
+                            </span>
+                          ) : null}
+                        </div>
                         <p className="mt-0.5 text-xs text-muted-foreground truncate max-w-xs">{task.category}</p>
                     </td>
                     <td className="px-5 py-3 hidden md:table-cell">
                       <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold ${priorityStyle[task.priority]}`}>{task.priority}</span>
                     </td>
-                    <td className="px-5 py-3 capitalize text-sm text-foreground font-medium">{task.assigneeName}</td>
-                    <td className="px-5 py-3 text-sm text-muted-foreground font-medium">{task.deadline}</td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2 capitalize text-sm font-medium text-foreground">
+                        <UserAvatar name={primaryAssignee?.name || task.assigneeName} photoUrl={primaryAssignee?.profilePhotoUrl} />
+                        <span className="truncate">{task.assigneeName}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 text-sm font-medium text-muted-foreground">{task.deadline}</td>
                     <td className="px-5 py-3 text-right">
                         <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => setOpenStatusMenu(openStatusMenu === task.id ? null : task.id)}
@@ -442,6 +679,20 @@ export default function TasksPage() {
                             )}
                         </div>
                     </td>
+                    <td className="px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      {canEditTaskRow(task) ? (
+                        <button
+                          type="button"
+                          title="Edit task"
+                          className="inline-flex rounded-lg p-2 text-muted-foreground opacity-70 transition hover:bg-muted hover:text-foreground"
+                          onClick={(e) => openEditModal(task, e)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <span className="inline-block w-8" />
+                      )}
+                    </td>
                     {perms.tasks_delete ? (
                       <td className="px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <button
@@ -455,10 +706,11 @@ export default function TasksPage() {
                       </td>
                     ) : null}
                 </motion.tr>
-              ))}
+              );
+              })}
               {filtered.length === 0 && (
                 <tr className="border-none">
-                    <td colSpan={perms.tasks_delete ? 6 : 5} className="px-6 py-20 text-center text-muted-foreground italic text-sm">No tasks found in this category.</td>
+                    <td colSpan={perms.tasks_delete ? 8 : 7} className="px-6 py-20 text-center text-muted-foreground italic text-sm">No tasks found in this category.</td>
                 </tr>
               )}
             </tbody>
@@ -477,18 +729,33 @@ export default function TasksPage() {
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div className="space-y-1.5 font-medium"><Label>Task Title</Label><Input value={form.title} onChange={e=>setForm({...form, title: e.target.value})} placeholder="e.g. Design YouTube Thumbnail" /></div>
                     <div className="space-y-1.5"><Label>Task type</Label>
-                      <select value={form.taskKind} onChange={e=>setForm({...form, taskKind: e.target.value as TaskKind})} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+                      <select value={form.taskKind} onChange={e=>setForm({...form, taskKind: e.target.value as TaskKind, deadlineLocal: e.target.value === "daily" ? "" : form.deadlineLocal})} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
                         <option value="daily">Daily task</option>
                         <option value="one_time">One-time task</option>
                         <option value="deadline_based">Deadline-based task</option>
                       </select>
                     </div>
-                    {(form.taskKind === "deadline_based" || form.taskKind === "daily" || form.taskKind === "one_time") && (
+                    {form.taskKind === "daily" ? (
+                      <div className="rounded-lg border border-teal-600/40 bg-teal-50/80 px-3 py-2 text-sm text-teal-950 dark:bg-teal-950/40 dark:text-teal-50">
+                        Daily task — no specific date
+                      </div>
+                    ) : (
                       <div className="space-y-1.5">
-                        <Label>{form.taskKind === "daily" ? "Due by (defaults to end of today if empty)" : "Deadline (date & time)"}</Label>
+                        <Label>{form.taskKind === "deadline_based" ? "Deadline (date & time)" : "Deadline (optional)"}</Label>
                         <Input type="datetime-local" value={form.deadlineLocal} onChange={e=>setForm({...form, deadlineLocal: e.target.value})} />
                       </div>
                     )}
+                    <div className="space-y-1.5">
+                      <Label>Description / notes (optional)</Label>
+                      <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="Context, links, acceptance criteria…" className="resize-y text-sm" />
+                    </div>
+                    <AssignmentTimeField
+                      value24={form.assignedTime24}
+                      onChange24={(v) => setForm({ ...form, assignedTime24: v })}
+                      use12h={formTimeUse12h}
+                      onToggle12h={setFormTimeUse12h}
+                      idPrefix="create-task"
+                    />
                     <div className="space-y-1.5">
                       <Label>Assignment</Label>
                       <select
@@ -509,7 +776,49 @@ export default function TasksPage() {
                       </select>
                     </div>
                     <div className={`grid gap-4 ${form.assignmentMode === "individual" ? "grid-cols-2" : "grid-cols-1"}`}>
-                        <div className="space-y-1.5"><Label>Category</Label><select value={form.category} onChange={e=>setForm({...form, category: e.target.value})} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">{CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
+                        <div className="space-y-1.5">
+                          <Label>Category</Label>
+                          <select
+                            value={form.category}
+                            onChange={async (e) => {
+                              const v = e.target.value;
+                              if (v === "__add__") {
+                                setShowNewCategoryInput(true);
+                                return;
+                              }
+                              setForm({ ...form, category: v });
+                            }}
+                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          >
+                            {categories.map((c) => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                            <option value="__add__">+ Add new category</option>
+                          </select>
+                          {showNewCategoryInput ? (
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                              <Input
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                placeholder="New category name"
+                                className="h-9 flex-1"
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={savingCategory || !newCategoryName.trim()}
+                                onClick={async () => {
+                                  await persistNewCategory(newCategoryName);
+                                  setForm((f) => ({ ...f, category: newCategoryName.trim() || f.category }));
+                                  setNewCategoryName("");
+                                  setShowNewCategoryInput(false);
+                                }}
+                              >
+                                Save
+                              </Button>
+                            </div>
+                          ) : null}
+                        </div>
                         {form.assignmentMode === "individual" ? (
                           <div className="space-y-1.5">
                             <Label>Assign to</Label>
@@ -589,6 +898,204 @@ export default function TasksPage() {
         )}
       </AnimatePresence>
 
+      {/* Edit Task Modal */}
+      <AnimatePresence>
+        {editModalTaskId && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEditModalTaskId(null)} className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="fixed inset-0 z-[101] flex items-center justify-center p-4">
+              <div className="max-h-[min(92vh,720px)] w-full max-w-lg overflow-y-auto rounded-2xl border bg-card shadow-2xl">
+                <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-card px-6 py-4">
+                  <h2 className="font-bold">Edit task</h2>
+                  <button type="button" onClick={() => setEditModalTaskId(null)}>
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <form onSubmit={handleEditSave} className="space-y-4 p-6">
+                  {editErrors.title ? <p className="text-sm text-destructive">{editErrors.title}</p> : null}
+                  {editErrors.deadline ? <p className="text-sm text-destructive">{editErrors.deadline}</p> : null}
+                  <div className="space-y-1.5 font-medium">
+                    <Label>Task Title</Label>
+                    <Input value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Task type</Label>
+                    <select
+                      value={editForm.taskKind}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          taskKind: e.target.value as TaskKind,
+                          deadlineLocal: e.target.value === "daily" ? "" : editForm.deadlineLocal,
+                        })
+                      }
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="daily">Daily task</option>
+                      <option value="one_time">One-time task</option>
+                      <option value="deadline_based">Deadline-based task</option>
+                    </select>
+                  </div>
+                  {editForm.taskKind === "daily" ? (
+                    <div className="rounded-lg border border-teal-600/40 bg-teal-50/80 px-3 py-2 text-sm text-teal-950 dark:bg-teal-950/40 dark:text-teal-50">
+                      Daily task — no specific date
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <Label>{editForm.taskKind === "deadline_based" ? "Deadline (date & time)" : "Deadline (optional)"}</Label>
+                      <Input type="datetime-local" value={editForm.deadlineLocal} onChange={(e) => setEditForm({ ...editForm, deadlineLocal: e.target.value })} />
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <Label>Description / notes</Label>
+                    <Textarea value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} rows={3} className="resize-y text-sm" />
+                  </div>
+                  <AssignmentTimeField
+                    value24={editForm.assignedTime24}
+                    onChange24={(v) => setEditForm({ ...editForm, assignedTime24: v })}
+                    use12h={editTimeUse12h}
+                    onToggle12h={setEditTimeUse12h}
+                    idPrefix="edit-task"
+                  />
+                  <div className="space-y-1.5">
+                    <Label>Assignment</Label>
+                    <select
+                      value={editForm.assignmentMode}
+                      onChange={(e) => {
+                        const mode = e.target.value as "individual" | "group";
+                        const first = editForm.assignedToId || assignees[0]?.id || "";
+                        setEditForm({
+                          ...editForm,
+                          assignmentMode: mode,
+                          groupAssigneeIds:
+                            mode === "group" ? (editForm.groupAssigneeIds.length ? editForm.groupAssigneeIds : first ? [first] : []) : editForm.groupAssigneeIds,
+                        });
+                      }}
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="individual">Individual (one owner)</option>
+                      <option value="group">Group task (shared)</option>
+                    </select>
+                  </div>
+                  <div className={`grid gap-4 ${editForm.assignmentMode === "individual" ? "grid-cols-2" : "grid-cols-1"}`}>
+                    <div className="space-y-1.5">
+                      <Label>Category</Label>
+                      <select
+                        value={editForm.category}
+                        onChange={(e) => {
+                          if (e.target.value === "__add__") {
+                            setShowNewCategoryInput(true);
+                            return;
+                          }
+                          setEditForm({ ...editForm, category: e.target.value });
+                        }}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        {categories.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                        <option value="__add__">+ Add new category</option>
+                      </select>
+                    </div>
+                    {editForm.assignmentMode === "individual" ? (
+                      <div className="space-y-1.5">
+                        <Label>Assign to</Label>
+                        <select
+                          value={editForm.assignedToId}
+                          onChange={(e) => setEditForm({ ...editForm, assignedToId: e.target.value })}
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                          <option value="">Select…</option>
+                          {assignees.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.name} ({a.role})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
+                  </div>
+                  {editForm.assignmentMode === "group" ? (
+                    <div className="space-y-1.5">
+                      <Label>Team members</Label>
+                      <div className="max-h-36 space-y-2 overflow-y-auto rounded-md border border-input bg-background p-2 text-sm">
+                        {assignees.map((a) => {
+                          const checked = editForm.groupAssigneeIds.includes(a.id);
+                          return (
+                            <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 hover:bg-muted/60">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  setEditForm((prev) => {
+                                    const set = new Set(prev.groupAssigneeIds);
+                                    if (set.has(a.id)) set.delete(a.id);
+                                    else set.add(a.id);
+                                    return { ...prev, groupAssigneeIds: Array.from(set) };
+                                  });
+                                }}
+                              />
+                              <span>
+                                {a.name} <span className="text-muted-foreground">({a.role})</span>
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Priority</Label>
+                      <select
+                        value={editForm.priority}
+                        onChange={(e) => setEditForm({ ...editForm, priority: e.target.value as TaskPriority })}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        {PRIORITIES.map((p) => (
+                          <option key={p} value={p}>
+                            {p}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Depends on (optional)</Label>
+                      <select
+                        value={editForm.dependsOnTaskId}
+                        onChange={(e) => setEditForm({ ...editForm, dependsOnTaskId: e.target.value })}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        <option value="">None</option>
+                        {tasks.filter((t) => t.id && t.id !== editModalTaskId).map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Tags (comma-separated)</Label>
+                    <Input value={editForm.tagsStr} onChange={(e) => setEditForm({ ...editForm, tagsStr: e.target.value })} className="h-9" />
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setEditModalTaskId(null)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" className="w-full sm:w-auto" disabled={editSubmitting}>
+                      {editSubmitting ? "Saving…" : "Save Changes"}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Task Detail Modal */}
       <AnimatePresence>
         {selectedTask && (
@@ -631,11 +1138,24 @@ export default function TasksPage() {
                             <div><span className="text-muted-foreground mr-2">Depends on:</span> {tasks.find((x) => x.id === selectedTask.dependsOnTaskId)?.title || selectedTask.dependsOnTaskId}</div>
                           ) : null}
                           <div><span className="text-muted-foreground mr-2">Deadline:</span> {selectedTask.deadline}</div>
-                          <div className="pt-4 border-t"><span className="block text-muted-foreground mb-1">Internal Notes:</span> <p className="text-xs italic text-muted-foreground">{selectedTask.notes || "No additional notes."}</p></div>
+                          {selectedTask.assignedTime ? (
+                            <div>
+                              <span className="text-muted-foreground mr-2">Scheduled time:</span>
+                              <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium tabular-nums">{formatTimeForTag(selectedTask.assignedTime, false)}</span>
+                            </div>
+                          ) : null}
+                          <div className="pt-4 border-t"><span className="block text-muted-foreground mb-1">Description / notes:</span> <p className="whitespace-pre-wrap text-xs text-muted-foreground">{selectedTask.notes || "None."}</p></div>
                       </div>
                       <ProofSection task={selectedTask} currentUser={currentUser} />
                   </div>
-                  <ChatBox taskId={selectedTask.id} messages={selectedTask.messages} currentUser={currentUser} onClose={() => setSelectedTaskId(null)} />
+                  <TaskDiscussionPanel
+                    taskId={selectedTask.id}
+                    messages={selectedTask.messages}
+                    users={users}
+                    currentUser={currentUser}
+                    typing={selectedTask.chatTyping}
+                    onClose={() => setSelectedTaskId(null)}
+                  />
                   <button onClick={() => setSelectedTaskId(null)} className="absolute top-4 right-4 hidden md:inline-flex h-8 w-8 items-center justify-center rounded-md bg-card/90 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-5 w-5"/></button>
               </div>
             </motion.div>

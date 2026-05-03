@@ -84,12 +84,23 @@ export const api = {
 
   tasks: {
     list:       (companyId: string)                                   => request<{ tasks: any[] }>(`/api/tasks?companyId=${companyId}`),
+    getOne:     (id: string, companyId: string)                      =>
+      request<{ task: any }>(`/api/tasks/${id}?companyId=${encodeURIComponent(companyId)}`),
     analytics:  (params: Record<string, string>)                      => request<any>(`/api/tasks/analytics?${new URLSearchParams(params)}`),
     create:     (data: Record<string, unknown>)                       => request<{ task: any }>('/api/tasks', { method: 'POST', body: JSON.stringify(data) }),
     setStatus:  (id: string, status: string, actorId?: string, actorName?: string) =>
       request<{ task: any }>(`/api/tasks/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, actorId, actorName }) }),
     submit:     (id: string, sub: Record<string, unknown>)            => request<{ task: any }>(`/api/tasks/${id}/submission`, { method: 'PATCH', body: JSON.stringify(sub) }),
     addMessage: (id: string, msg: Record<string, unknown>)            => request<{ task: any }>(`/api/tasks/${id}/messages`, { method: 'POST', body: JSON.stringify(msg) }),
+    markMessagesRead: (id: string, readerId: string) =>
+      request<{ task: any }>(`/api/tasks/${id}/messages/read`, { method: 'PATCH', body: JSON.stringify({ readerId }) }),
+    chatTyping: (id: string, body: { userId: string; userName: string; active: boolean }) =>
+      request<{ task: any }>(`/api/tasks/${id}/chat-typing`, { method: 'POST', body: JSON.stringify(body) }),
+    messageReaction: (taskId: string, messageId: string, body: { userId: string; emoji: string }) =>
+      request<{ task: any }>(
+        `/api/tasks/${taskId}/messages/${encodeURIComponent(messageId)}/reaction`,
+        { method: 'PATCH', body: JSON.stringify(body) }
+      ),
     patch:      (id: string, data: Record<string, unknown>)          => request<{ task: any }>(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     remove:     (id: string, companyId: string)                        =>
       request(`/api/tasks/${id}?companyId=${encodeURIComponent(companyId)}`, { method: 'DELETE' }),
@@ -187,3 +198,21 @@ export const api = {
     patch: (companyId: string, data: Record<string, unknown>) => request<{ company: any }>(`/api/tenant-company/${companyId}`, { method: 'PATCH', body: JSON.stringify(data) }),
   },
 };
+
+/** Upload image (multipart). Does not use JSON `request()` — sends FormData only. */
+export async function uploadImageFile(kind: "avatar" | "task-chat", file: File): Promise<{ url: string }> {
+  const BASE_URL = normalizeApiBaseUrl(
+    import.meta.env.VITE_API_URL ||
+      (import.meta.env.DEV ? "http://localhost:3001" : "https://kpiadscroll360.onrender.com")
+  );
+  const form = new FormData();
+  form.append("file", file);
+  const path = kind === "avatar" ? "/api/uploads/avatar" : "/api/uploads/task-chat";
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    body: form,
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error || `Upload failed: ${res.status}`);
+  return json as { url: string };
+}

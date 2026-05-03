@@ -22,6 +22,7 @@ export interface AppUser {
     createdAt: string;
     companyId?: string;
     companyRoleId?: string | null;
+    profilePhotoUrl?: string | null;
 }
 
 interface AuthContextType {
@@ -62,6 +63,7 @@ function mapUser(u: any): AppUser {
         createdAt: u.created_at || u.createdAt || new Date().toISOString(),
         companyId: u.companyId,
         companyRoleId: u.companyRoleId ?? null,
+        profilePhotoUrl: u.profilePhotoUrl ?? null,
     };
 }
 

@@ -2,9 +2,30 @@
 import { Router } from 'express';
 import Task from '../models/Task.js';
 import Notification from '../models/Notification.js';
+import User from '../models/User.js';
 import { randomUUID } from 'crypto';
 
 const router = Router();
+
+function assigneeIdSet(task) {
+  const ids = new Set();
+  if (task.assigneeId) ids.add(String(task.assigneeId));
+  for (const id of task.assigneeIds || []) ids.add(String(id));
+  return ids;
+}
+
+async function assertTaskAccess(task, actorUserId, companyId) {
+  if (!actorUserId) return null;
+  const actor = await User.findOne({ _id: actorUserId, companyId });
+  if (!actor) return null;
+  if (['admin', 'controller'].includes(actor.role)) return actor;
+  if (assigneeIdSet(task).has(String(actorUserId))) return actor;
+  return null;
+}
+
+async function assertTaskEditAccess(task, actorUserId, companyId) {
+  return assertTaskAccess(task, actorUserId, companyId);
+}
 
 async function createNotification({
   companyId,
@@ -212,13 +233,31 @@ router.post('/:id/messages', async (req, res, next) => {
   try {
     const { senderId, senderName, text, fileUrl, companyId } = req.body;
     if (!companyId) return res.status(400).json({ error: 'companyId is required' });
-    const msg = { id: randomUUID(), senderId, senderName, text, fileUrl, timestamp: new Date().toISOString() };
+    const existing = await Task.findOne({ _id: req.params.id, companyId });
+    if (!existing) return res.status(404).json({ error: 'Task not found or unauthorized' });
+    const actor = await assertTaskAccess(existing, senderId, companyId);
+    if (!actor) return res.status(403).json({ error: 'Not allowed to post on this task' });
+
+    const msg = {
+      id: randomUUID(),
+      senderId,
+      senderName,
+      text,
+      fileUrl,
+      timestamp: new Date().toISOString(),
+      reactions: [],
+      readBy: [],
+    };
     const task = await Task.findOneAndUpdate(
       { _id: req.params.id, companyId },
-      { $push: { messages: msg } },
+      {
+        $push: { messages: msg },
+        $set: {
+          chatTyping: { userId: null, userName: '', updatedAt: null },
+        },
+      },
       { new: true }
     );
-    if (!task) return res.status(404).json({ error: 'Task not found or unauthorized' });
 
     await createNotification({
       companyId,
@@ -236,14 +275,120 @@ router.post('/:id/messages', async (req, res, next) => {
 const TASK_PATCH_KEYS = [
   'title', 'category', 'assigneeId', 'assigneeName', 'assigneeIds', 'assignedById', 'assignedByName',
   'kpiRelationId', 'kpiRelationName', 'type', 'taskKind', 'deadlineAt', 'status', 'deadline', 'timeSpent', 'notes',
-  'priority', 'tags', 'dependsOnTaskId', 'recurring',
+  'priority', 'tags', 'dependsOnTaskId', 'recurring', 'assignedTime',
 ];
+
+/** POST /api/tasks/:id/chat-typing — broadcast typing state (clears after timeout on client) */
+router.post('/:id/chat-typing', async (req, res, next) => {
+  try {
+    const { companyId, userId, userName, active } = req.body;
+    if (!companyId) return res.status(400).json({ error: 'companyId is required' });
+    const existing = await Task.findOne({ _id: req.params.id, companyId });
+    if (!existing) return res.status(404).json({ error: 'Task not found' });
+    const actor = await assertTaskAccess(existing, userId, companyId);
+    if (!actor) return res.status(403).json({ error: 'Forbidden' });
+
+    const typing =
+      active === false || !userId
+        ? { userId: null, userName: '', updatedAt: null }
+        : { userId, userName: userName || '', updatedAt: new Date() };
+    const task = await Task.findOneAndUpdate(
+      { _id: req.params.id, companyId },
+      { $set: { chatTyping: typing } },
+      { new: true }
+    );
+    res.json({ task });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** PATCH /api/tasks/:id/messages/read — reader acknowledges messages (read receipts) */
+router.patch('/:id/messages/read', async (req, res, next) => {
+  try {
+    const { companyId, readerId } = req.body;
+    if (!companyId || !readerId) return res.status(400).json({ error: 'companyId and readerId are required' });
+    const task = await Task.findOne({ _id: req.params.id, companyId }).lean();
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    const actor = await assertTaskAccess(task, readerId, companyId);
+    if (!actor) return res.status(403).json({ error: 'Forbidden' });
+
+    const rid = String(readerId);
+    const messages = (task.messages || []).map((m) => {
+      const plain = { ...m };
+      const sender = String(plain.senderId || '');
+      if (sender === rid) return plain;
+      const readBy = Array.isArray(plain.readBy) ? [...plain.readBy] : [];
+      if (!readBy.includes(rid)) readBy.push(rid);
+      return { ...plain, readBy };
+    });
+
+    const updated = await Task.findOneAndUpdate(
+      { _id: req.params.id, companyId },
+      { $set: { messages } },
+      { new: true }
+    );
+    res.json({ task: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** PATCH /api/tasks/:id/messages/:messageId/reaction — toggle emoji reaction */
+router.patch('/:id/messages/:messageId/reaction', async (req, res, next) => {
+  try {
+    const { companyId, userId, emoji } = req.body;
+    if (!companyId || !userId || !emoji) {
+      return res.status(400).json({ error: 'companyId, userId, and emoji are required' });
+    }
+    const task = await Task.findOne({ _id: req.params.id, companyId }).lean();
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    const actor = await assertTaskAccess(task, userId, companyId);
+    if (!actor) return res.status(403).json({ error: 'Forbidden' });
+
+    const messageId = req.params.messageId;
+    const uid = String(userId);
+    const messages = (task.messages || []).map((m) => {
+      const plain = { ...m };
+      const mid = plain.id || plain._id;
+      if (String(mid) !== String(messageId)) return plain;
+      let reactions = Array.isArray(plain.reactions) ? plain.reactions.map((r) => ({ ...r, userIds: [...(r.userIds || [])] })) : [];
+      let group = reactions.find((r) => r.emoji === emoji);
+      if (!group) {
+        group = { emoji, userIds: [] };
+        reactions.push(group);
+      }
+      const set = new Set(group.userIds || []);
+      if (set.has(uid)) set.delete(uid);
+      else set.add(uid);
+      group.userIds = Array.from(set);
+      if (group.userIds.length === 0) {
+        reactions = reactions.filter((r) => r.emoji !== emoji);
+      }
+      return { ...plain, reactions };
+    });
+
+    const updated = await Task.findOneAndUpdate(
+      { _id: req.params.id, companyId },
+      { $set: { messages } },
+      { new: true }
+    );
+    res.json({ task: updated });
+  } catch (err) {
+    next(err);
+  }
+});
 
 /** PATCH /api/tasks/:id — partial update (priority, tags, dependency, etc.) */
 router.patch('/:id', async (req, res, next) => {
   try {
     const { companyId, actorId, actorName, ...body } = req.body;
     if (!companyId) return res.status(400).json({ error: 'companyId is required' });
+    const existing = await Task.findOne({ _id: req.params.id, companyId });
+    if (!existing) return res.status(404).json({ error: 'Task not found or unauthorized' });
+    const editor = await assertTaskEditAccess(existing, actorId, companyId);
+    if (!editor) return res.status(403).json({ error: 'You do not have permission to edit this task' });
+
     const updates = {};
     for (const k of TASK_PATCH_KEYS) {
       if (body[k] !== undefined) updates[k] = body[k];

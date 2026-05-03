@@ -1,6 +1,14 @@
 // backend/src/models/Task.js
 import mongoose from 'mongoose';
 
+const reactionEntrySchema = new mongoose.Schema(
+  {
+    emoji: { type: String, required: true },
+    userIds: { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
 const taskMessageSchema = new mongoose.Schema({
   id: { type: String, required: true },
   senderId: String,
@@ -8,6 +16,8 @@ const taskMessageSchema = new mongoose.Schema({
   text: String,
   fileUrl: String,
   timestamp: String,
+  reactions: { type: [reactionEntrySchema], default: [] },
+  readBy: { type: [String], default: [] },
 });
 
 const taskSubmissionSchema = new mongoose.Schema({
@@ -55,7 +65,14 @@ const taskSchema = new mongoose.Schema(
       rule: { type: String, default: '' },
     },
     notes: { type: String },
+    /** Optional scheduled time for the assignment, stored as "HH:MM" (24h) */
+    assignedTime: { type: String, default: null },
     messages: [taskMessageSchema],
+    chatTyping: {
+      userId: { type: String, default: null },
+      userName: { type: String, default: '' },
+      updatedAt: { type: Date, default: null },
+    },
     submission: taskSubmissionSchema,
     companyId: { type: String, default: null },
   },

@@ -6,6 +6,7 @@ import type { AppTask } from "@/context/TaskContext";
 import { isTaskAssignedTo } from "@/lib/taskHelpers";
 import { companyOperationalTeam } from "@/lib/companyTeam";
 import { motion, AnimatePresence } from "framer-motion";
+import { UserAvatar } from "@/components/UserAvatar";
 
 function taskResolvedAtMs(t: AppTask): number {
     if (t.submission?.submittedAt) return new Date(t.submission.submittedAt).getTime();
@@ -70,6 +71,7 @@ export function LeaderboardWidget() {
             return {
                 id: emp.id,
                 name: emp.name,
+                profilePhotoUrl: emp.profilePhotoUrl,
                 kpiScore: kpiScore,
                 tasksCompleted: myCompletedTasks.length,
                 sortScore: (kpiScore * 100) + myCompletedTasks.length // Weighted for sorting
@@ -121,7 +123,12 @@ export function LeaderboardWidget() {
                                                 {badge.icon}
                                             </div>
                                         </td>
-                                        <td className="px-5 py-3 text-sm font-medium text-foreground">{emp.name}</td>
+                                        <td className="px-5 py-3">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <UserAvatar name={emp.name} photoUrl={emp.profilePhotoUrl} />
+                                                <span className="text-sm font-medium text-foreground truncate">{emp.name}</span>
+                                            </div>
+                                        </td>
                                         <td className="px-5 py-3 text-right">
                                             <span className={`px-2 py-0.5 rounded text-xs font-bold ${emp.kpiScore >= 90 ? "text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400" : emp.kpiScore >= 60 ? "text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400" : "text-muted-foreground bg-muted"}`}>
                                                 {emp.kpiScore}%

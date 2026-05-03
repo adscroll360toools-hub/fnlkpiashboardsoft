@@ -8,6 +8,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import connectDB from './config/db.js';
 import healthRouter from './routes/health.js';
@@ -23,15 +25,23 @@ import notesRouter from './routes/notes.js';
 import skillsRouter from './routes/skills.js';
 import rewardsRouter from './routes/rewards.js';
 import tenantCompanyRouter from './routes/tenantCompany.js';
+import uploadsRouter from './routes/uploads.js';
 
 // ── Connect to MongoDB ─────────────────────────────────────
 await connectDB();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ── Security & Middleware ──────────────────────────────────
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 app.use(morgan('dev'));
 
 const allowedOrigins = (process.env.FRONTEND_URL || '')
@@ -56,6 +66,8 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Root URL (Render/uptime/browser often hit `/` — API lives under `/api`)
 app.get('/', (_req, res) => {
   res.status(200).json({
@@ -79,6 +91,7 @@ app.use('/api/notes',          notesRouter);
 app.use('/api/skills',         skillsRouter);
 app.use('/api/rewards',       rewardsRouter);
 app.use('/api/tenant-company', tenantCompanyRouter);
+app.use('/api/uploads', uploadsRouter);
 
 // ── 404 Handler ────────────────────────────────────────────
 app.use((_req, res) => {
