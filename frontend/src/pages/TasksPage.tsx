@@ -19,6 +19,7 @@ import {
   isTaskOverdue,
   endOfToday,
   isTaskAssignedTo,
+  canUserEditTask,
   isDailyTaskRow,
   DAILY_TASK_SURFACE_CLASS,
   DAILY_TASK_BADGE_CLASS,
@@ -486,8 +487,7 @@ export default function TasksPage() {
     } else toast.error(res.error);
   };
 
-  const canEditTaskRow = (t: AppTask) =>
-    !!(perms.tasks_create || (currentUser?.id && isTaskAssignedTo(t, currentUser.id)));
+  const canEditTaskRow = (t: AppTask) => canUserEditTask(t, currentUser);
 
   const openEditModal = (task: AppTask, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -681,33 +681,59 @@ export default function TasksPage() {
           </div>
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">View layout</p>
-            <div className="flex flex-wrap gap-2">
-              {TASK_VIEW_OPTIONS.map((opt) => {
-                const Icon = opt.icon;
-                const selected = viewMode === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setViewMode(opt.id)}
-                    className={`flex min-w-[5.5rem] flex-1 flex-col items-center gap-1.5 rounded-xl border px-2 py-2.5 text-center transition-all sm:min-w-[6.5rem] sm:flex-none sm:px-3 ${
-                      selected
-                        ? "border-primary bg-primary/5 shadow-sm ring-2 ring-primary/25"
-                        : "border-border bg-card/80 hover:border-primary/40 hover:bg-muted/50"
-                    }`}
-                  >
-                    <span className={`flex h-9 w-9 items-center justify-center rounded-lg ring-1 ${opt.iconWrap}`}>
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="text-[11px] font-semibold leading-tight text-foreground sm:text-xs">{opt.label}</span>
-                  </button>
-                );
-              })}
+            {/* Narrow screens: single compact control + description */}
+            <div className="md:hidden space-y-2">
+              <label className="sr-only" htmlFor="task-view-layout">
+                View layout
+              </label>
+              <select
+                id="task-view-layout"
+                value={viewMode}
+                onChange={(e) => setViewMode(e.target.value as TaskViewId)}
+                className="flex h-12 w-full rounded-xl border border-input bg-background px-3 text-base font-medium text-foreground shadow-sm"
+              >
+                {TASK_VIEW_OPTIONS.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm text-foreground shadow-sm">
+                <span className="font-medium text-primary">{TASK_VIEW_OPTIONS.find((v) => v.id === viewMode)?.label}</span>
+                <span className="text-muted-foreground"> — </span>
+                <span className="text-muted-foreground">{TASK_VIEW_OPTIONS.find((v) => v.id === viewMode)?.description}</span>
+              </div>
             </div>
-            <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm text-foreground shadow-sm sm:px-4">
-              <span className="font-medium text-primary">{TASK_VIEW_OPTIONS.find((v) => v.id === viewMode)?.label}</span>
-              <span className="text-muted-foreground"> — </span>
-              <span className="text-muted-foreground">{TASK_VIEW_OPTIONS.find((v) => v.id === viewMode)?.description}</span>
+            {/* md+: icon grid */}
+            <div className="hidden md:block">
+              <div className="flex flex-wrap gap-2">
+                {TASK_VIEW_OPTIONS.map((opt) => {
+                  const Icon = opt.icon;
+                  const selected = viewMode === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setViewMode(opt.id)}
+                      className={`flex min-w-[5.5rem] flex-col items-center gap-1.5 rounded-xl border px-2 py-2.5 text-center transition-all lg:min-w-[6.5rem] lg:px-3 ${
+                        selected
+                          ? "border-primary bg-primary/5 shadow-sm ring-2 ring-primary/25"
+                          : "border-border bg-card/80 hover:border-primary/40 hover:bg-muted/50"
+                      }`}
+                    >
+                      <span className={`flex h-9 w-9 items-center justify-center rounded-lg ring-1 ${opt.iconWrap}`}>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span className="text-[11px] font-semibold leading-tight text-foreground lg:text-xs">{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5 text-sm text-foreground shadow-sm">
+                <span className="font-medium text-primary">{TASK_VIEW_OPTIONS.find((v) => v.id === viewMode)?.label}</span>
+                <span className="text-muted-foreground"> — </span>
+                <span className="text-muted-foreground">{TASK_VIEW_OPTIONS.find((v) => v.id === viewMode)?.description}</span>
+              </div>
             </div>
           </div>
         </motion.div>

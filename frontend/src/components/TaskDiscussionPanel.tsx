@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback, memo } from "react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MessageCircle, X, Send, Paperclip, Smile, Loader2 } from "lucide-react";
 import { useTask, TaskMessage } from "@/context/TaskContext";
 import { AppUser } from "@/context/AuthContext";
@@ -31,6 +32,8 @@ export const TaskDiscussionPanel = memo(function TaskDiscussionPanel({
   const [chatMsg, setChatMsg] = useState("");
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  /** Which message has the quick-reaction picker open (one at a time). */
+  const [reactionOpenForId, setReactionOpenForId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idleTypingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -197,17 +200,6 @@ export const TaskDiscussionPanel = memo(function TaskDiscussionPanel({
                     <div className="whitespace-pre-wrap break-words">{msg.text}</div>
                   </div>
                   <div className="flex flex-wrap items-center gap-1 px-0.5">
-                    {QUICK_EMOJIS.map((em) => (
-                      <button
-                        key={em}
-                        type="button"
-                        title="React"
-                        className="rounded-full px-1.5 py-0.5 text-xs hover:bg-muted"
-                        onClick={() => void toggleTaskMessageReaction(taskId, msg.id, em)}
-                      >
-                        {em}
-                      </button>
-                    ))}
                     {(msg.reactions || []).map((r) => (
                       <button
                         key={r.emoji}
@@ -218,6 +210,47 @@ export const TaskDiscussionPanel = memo(function TaskDiscussionPanel({
                         {r.emoji} {r.userIds?.length ?? 0}
                       </button>
                     ))}
+                    <Popover
+                      open={reactionOpenForId === msg.id}
+                      onOpenChange={(open) => setReactionOpenForId(open ? msg.id : null)}
+                    >
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          title="React"
+                          aria-label="Pick a reaction"
+                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                        >
+                          <Smile className="h-3.5 w-3.5" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-auto border bg-popover p-1.5 shadow-md"
+                        align="start"
+                        side="top"
+                        sideOffset={6}
+                        onOpenAutoFocus={(e) => e.preventDefault()}
+                      >
+                        <p className="mb-1 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Quick react
+                        </p>
+                        <div className="flex flex-wrap gap-0.5">
+                          {QUICK_EMOJIS.map((em) => (
+                            <button
+                              key={em}
+                              type="button"
+                              className="rounded-lg px-2 py-1.5 text-lg leading-none transition hover:bg-muted active:scale-95"
+                              onClick={() => {
+                                void toggleTaskMessageReaction(taskId, msg.id, em);
+                                setReactionOpenForId(null);
+                              }}
+                            >
+                              {em}
+                            </button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   {isMe && readByOthers ? (
                     <span className="text-[10px] text-muted-foreground">Seen</span>

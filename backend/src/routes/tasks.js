@@ -20,6 +20,7 @@ async function assertTaskAccess(task, actorUserId, companyId) {
   if (!actor) return null;
   if (['admin', 'controller'].includes(actor.role)) return actor;
   if (assigneeIdSet(task).has(String(actorUserId))) return actor;
+  if (task.assignedById && String(task.assignedById) === String(actorUserId)) return actor;
   return null;
 }
 
