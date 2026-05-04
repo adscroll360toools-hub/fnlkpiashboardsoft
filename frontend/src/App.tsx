@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth, UserRole } from "@/context/AuthContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { AttendanceProvider } from "@/context/AttendanceContext";
 import { TaskProvider } from "@/context/TaskContext";
 import { KPIProvider } from "@/context/KPIContext";
@@ -159,17 +160,19 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <AttendanceProvider>
-            <TaskProvider>
-              <KPIProvider>
-                <RewardProvider>
-                  <NotificationProvider>
-                    <AppRoutes />
-                  </NotificationProvider>
-                </RewardProvider>
-              </KPIProvider>
-            </TaskProvider>
-          </AttendanceProvider>
+          <ThemeProvider>
+            <AttendanceProvider>
+              <TaskProvider>
+                <KPIProvider>
+                  <RewardProvider>
+                    <NotificationProvider>
+                      <AppRoutes />
+                    </NotificationProvider>
+                  </RewardProvider>
+                </KPIProvider>
+              </TaskProvider>
+            </AttendanceProvider>
+          </ThemeProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

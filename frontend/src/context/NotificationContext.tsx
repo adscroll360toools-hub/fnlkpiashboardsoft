@@ -106,13 +106,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const markAllRead = useCallback(async () => {
     if (!currentUser?.companyId) return;
     try {
-      await api.notifications.markAllRead({ companyId: currentUser.companyId, userId: currentUser.id, userRole: currentUser.role });
+      await api.notifications.markAllRead({
+        companyId: currentUser.companyId,
+        userId: currentUser.id,
+        userRole: currentUser.role,
+      });
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
     } catch (err) {
       console.error(err);
     }
-  }, [currentUser?.companyId, currentUser?.id]);
+  }, [currentUser?.companyId, currentUser?.id, currentUser?.role]);
 
   const clearAll = useCallback(async () => {
     if (!currentUser?.companyId) return;

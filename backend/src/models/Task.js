@@ -28,6 +28,22 @@ const taskSubmissionSchema = new mongoose.Schema({
   submittedAt: String,
 });
 
+const taskAccessUserGrantSchema = new mongoose.Schema(
+  {
+    userId: { type: String, required: true },
+    access: { type: String, enum: ['Admin', 'Editor', 'Viewer'], required: true },
+  },
+  { _id: false }
+);
+
+const taskAccessControlSchema = new mongoose.Schema(
+  {
+    roleGrants: { type: [String], default: [] },
+    userGrants: { type: [taskAccessUserGrantSchema], default: [] },
+  },
+  { _id: false }
+);
+
 const taskSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
@@ -75,6 +91,10 @@ const taskSchema = new mongoose.Schema(
     },
     submission: taskSubmissionSchema,
     companyId: { type: String, default: null },
+    accessControl: {
+      type: taskAccessControlSchema,
+      default: () => ({ roleGrants: [], userGrants: [] }),
+    },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },

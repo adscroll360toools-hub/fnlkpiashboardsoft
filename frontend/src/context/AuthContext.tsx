@@ -23,6 +23,8 @@ export interface AppUser {
     companyId?: string;
     companyRoleId?: string | null;
     profilePhotoUrl?: string | null;
+    /** Server-stored UI preferences (e.g. theme). */
+    preferences?: { theme?: string; [key: string]: unknown };
 }
 
 interface AuthContextType {
@@ -64,6 +66,10 @@ function mapUser(u: any): AppUser {
         companyId: u.companyId,
         companyRoleId: u.companyRoleId ?? null,
         profilePhotoUrl: u.profilePhotoUrl ?? null,
+        preferences:
+            u.preferences && typeof u.preferences === "object" && !Array.isArray(u.preferences)
+                ? (u.preferences as AppUser["preferences"])
+                : undefined,
     };
 }
 

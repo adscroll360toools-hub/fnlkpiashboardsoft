@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { api } from "@/lib/api";
 import { useAuth } from "./AuthContext";
 import { getEffectivePermissions } from "@/lib/permissions";
+import { normalizeAccessControl, type TaskAccessControl } from "@/lib/taskAccess";
 
 export type TaskStatus = "Pending" | "In Progress" | "Completed" | "Approved";
 export type TaskKind = "daily" | "one_time" | "deadline_based";
@@ -61,6 +62,7 @@ export interface AppTask {
     messages: TaskMessage[];
     submission?: TaskSubmission;
     chatTyping?: { userId: string | null; userName: string; updatedAt?: string | null };
+    accessControl?: TaskAccessControl;
 }
 
 interface TaskContextType {
@@ -126,6 +128,7 @@ function mapTask(t: any): AppTask {
                       : null,
               }
             : undefined,
+        accessControl: normalizeAccessControl(t.accessControl),
     };
 }
 

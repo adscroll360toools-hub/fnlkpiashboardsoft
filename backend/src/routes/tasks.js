@@ -275,7 +275,7 @@ router.post('/:id/messages', async (req, res, next) => {
 const TASK_PATCH_KEYS = [
   'title', 'category', 'assigneeId', 'assigneeName', 'assigneeIds', 'assignedById', 'assignedByName',
   'kpiRelationId', 'kpiRelationName', 'type', 'taskKind', 'deadlineAt', 'status', 'deadline', 'timeSpent', 'notes',
-  'priority', 'tags', 'dependsOnTaskId', 'recurring', 'assignedTime',
+  'priority', 'tags', 'dependsOnTaskId', 'recurring', 'assignedTime', 'accessControl',
 ];
 
 /** POST /api/tasks/:id/chat-typing — broadcast typing state (clears after timeout on client) */

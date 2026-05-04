@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Clock, CheckCircle2, AlertCircle,
   Trash2, X, ChevronDown, Link as LinkIcon, FileText,
-  LayoutGrid, List, CalendarDays, Pencil,
+  LayoutGrid, CalendarDays, Pencil, Table2, GanttChart, Milestone, Columns3,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +29,8 @@ import { api } from "@/lib/api";
 import { AssignmentTimeField, formatTimeForTag } from "@/components/AssignmentTimeField";
 import { TaskDiscussionPanel } from "@/components/TaskDiscussionPanel";
 import { UserAvatar } from "@/components/UserAvatar";
+import { TaskRolesPermissionsPicker } from "@/components/TaskRolesPermissionsPicker";
+import { normalizeAccessControl, type TaskAccessControl } from "@/lib/taskAccess";
 const FALLBACK_CATEGORIES = [
   "Social Media",
   "Video SEO",
@@ -54,6 +57,59 @@ const statusConfig = {
 };
 
 type FilterTab = "All" | TaskStatus;
+
+type TaskViewId = "table" | "calendar" | "gantt" | "timeline" | "kanban" | "cards";
+
+const TASK_VIEW_OPTIONS: {
+  id: TaskViewId;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  iconWrap: string;
+}[] = [
+  {
+    id: "table",
+    label: "Table",
+    description: "Scan every task in compact rows with status, assignee, and deadlines at a glance.",
+    icon: Table2,
+    iconWrap: "bg-sky-500/20 text-sky-700 ring-sky-500/30 dark:text-sky-200",
+  },
+  {
+    id: "calendar",
+    label: "Calendar",
+    description: "Browse deadlines on a month grid and focus on what is due each day.",
+    icon: CalendarDays,
+    iconWrap: "bg-violet-500/20 text-violet-700 ring-violet-500/30 dark:text-violet-200",
+  },
+  {
+    id: "gantt",
+    label: "Gantt",
+    description: "See tasks laid out on a horizontal timeline to spot overlaps and bottlenecks.",
+    icon: GanttChart,
+    iconWrap: "bg-emerald-500/20 text-emerald-800 ring-emerald-500/30 dark:text-emerald-200",
+  },
+  {
+    id: "timeline",
+    label: "Timeline",
+    description: "A vertical storyline of upcoming work, ideal for stand-ups and sequencing.",
+    icon: Milestone,
+    iconWrap: "bg-amber-500/20 text-amber-800 ring-amber-500/30 dark:text-amber-200",
+  },
+  {
+    id: "kanban",
+    label: "Kanban",
+    description: "Drag-friendly columns by status to run weekly execution and WIP limits.",
+    icon: Columns3,
+    iconWrap: "bg-fuchsia-500/20 text-fuchsia-800 ring-fuchsia-500/30 dark:text-fuchsia-200",
+  },
+  {
+    id: "cards",
+    label: "Cards",
+    description: "Large tiles with priority and assignee—best for creative reviews on tablets.",
+    icon: LayoutGrid,
+    iconWrap: "bg-cyan-500/20 text-cyan-800 ring-cyan-500/30 dark:text-cyan-200",
+  },
+];
 
 // --- Sub-component: ProofSection (Isolated for performance) ---
 const ProofSection = memo(({ task, currentUser }: { task: AppTask, currentUser: any }) => {
@@ -101,10 +157,128 @@ const ProofSection = memo(({ task, currentUser }: { task: AppTask, currentUser: 
     );
 });
 
+function GanttStrip({ tasks, onSelectTask }: { tasks: AppTask[]; onSelectTask: (id: string) => void }) {
+  const days = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - 2);
+    return Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  }, []);
+
+  const dayKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  const rows = tasks.filter((t) => t.deadlineAt && !isDailyTaskRow(t)).slice(0, 28);
+
+  const colTemplate = `minmax(120px,1.2fr) repeat(${days.length}, minmax(36px,1fr))`;
+
+  return (
+    <div className="min-w-[640px] space-y-2">
+      <div className="grid items-center gap-1" style={{ gridTemplateColumns: colTemplate }}>
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Task</div>
+        {days.map((d) => (
+          <div key={dayKey(d)} className="text-center text-[9px] font-medium tabular-nums text-muted-foreground">
+            {d.getDate()}
+          </div>
+        ))}
+      </div>
+      {rows.map((task) => {
+        const tk = task.deadlineAt ? dayKey(new Date(task.deadlineAt)) : "";
+        return (
+          <div key={task.id} className="grid items-center gap-1" style={{ gridTemplateColumns: colTemplate }}>
+            <button
+              type="button"
+              onClick={() => onSelectTask(task.id)}
+              className="truncate py-1.5 pr-2 text-left text-xs font-medium text-foreground hover:text-primary"
+              title={task.title}
+            >
+              {task.title}
+            </button>
+            {days.map((d) => {
+              const dk = dayKey(d);
+              const hit = tk === dk;
+              return (
+                <div
+                  key={`${task.id}-${dk}`}
+                  className={`h-7 rounded-md ${hit ? "bg-primary shadow-sm" : "bg-muted/30"}`}
+                  title={hit ? String(task.deadline) : ""}
+                />
+              );
+            })}
+          </div>
+        );
+      })}
+      {rows.length === 0 ? <p className="text-sm text-muted-foreground">No deadline-based tasks to plot.</p> : null}
+    </div>
+  );
+}
+
+function TimelineList({
+  tasks,
+  priorityStyle,
+  onSelect,
+}: {
+  tasks: AppTask[];
+  priorityStyle: Record<TaskPriority, string>;
+  onSelect: (id: string) => void;
+}) {
+  const sorted = useMemo(() => {
+    return [...tasks]
+      .filter((t) => t.deadlineAt)
+      .sort((a, b) => new Date(a.deadlineAt || 0).getTime() - new Date(b.deadlineAt || 0).getTime());
+  }, [tasks]);
+  const undated = useMemo(() => tasks.filter((t) => !t.deadlineAt || isDailyTaskRow(t)), [tasks]);
+
+  return (
+    <div className="space-y-6">
+      <ul className="relative space-y-0 border-l-2 border-border pl-6">
+        {sorted.map((task) => (
+          <li key={task.id} className="relative pb-8 last:pb-0">
+            <span className="absolute -left-[21px] top-1.5 h-3 w-3 rounded-full border-2 border-card bg-primary shadow" />
+            <button type="button" className="block w-full text-left" onClick={() => onSelect(task.id)}>
+              <p className="text-sm font-semibold text-foreground">{task.title}</p>
+              <p className="text-xs text-muted-foreground">
+                {new Date(task.deadlineAt!).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+              </p>
+              <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${priorityStyle[task.priority]}`}>
+                {task.priority}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {sorted.length === 0 ? <p className="text-sm text-muted-foreground">No dated tasks in this filter.</p> : null}
+      {undated.length > 0 ? (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Other / daily</p>
+          <div className="flex flex-wrap gap-2">
+            {undated.map((task) => (
+              <button
+                key={task.id}
+                type="button"
+                onClick={() => onSelect(task.id)}
+                className={`rounded-lg border px-3 py-1.5 text-left text-xs font-medium hover:bg-muted/60 ${
+                  isDailyTaskRow(task) ? DAILY_TASK_SURFACE_CLASS : "bg-muted/30"
+                }`}
+              >
+                {task.title}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function TasksPage() {
   const { currentUser, users, companyRoles } = useAuth();
   const { tasks, createTask, updateTaskStatus, deleteTask, refreshTasks, patchTask } = useTask();
-  const [viewMode, setViewMode] = useState<"table" | "board" | "calendar">("table");
+  const [viewMode, setViewMode] = useState<TaskViewId>("table");
   const perms = getEffectivePermissions(currentUser, companyRoles);
   const assignees = useMemo(() => {
     const pool = users.filter((u) => u.role !== "admin");
@@ -170,6 +344,8 @@ export default function TasksPage() {
   });
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const [editAccessPickerOpen, setEditAccessPickerOpen] = useState(false);
+  const [editAccessControl, setEditAccessControl] = useState<TaskAccessControl>({ roleGrants: [], userGrants: [] });
 
   useEffect(() => {
     if (!currentUser?.companyId) return;
@@ -316,6 +492,7 @@ export default function TasksPage() {
   const openEditModal = (task: AppTask, e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!canEditTaskRow(task)) return;
+    setEditAccessPickerOpen(false);
     const primary = task.assigneeId;
     const mode: "individual" | "group" =
       task.type === "Group" && (task.assigneeIds?.length || 0) > 1 ? "group" : "individual";
@@ -339,6 +516,14 @@ export default function TasksPage() {
       tagsStr: (task.tags || []).join(", "),
       dependsOnTaskId: task.dependsOnTaskId || "",
     });
+    let ac = normalizeAccessControl(task.accessControl);
+    if (mode === "group" && ac.userGrants.length === 0 && task.assigneeIds?.length) {
+      ac = {
+        roleGrants: ac.roleGrants,
+        userGrants: task.assigneeIds.map((uid) => ({ userId: uid, access: "Editor" as const })),
+      };
+    }
+    setEditAccessControl(ac);
     setEditErrors({});
     setEditModalTaskId(task.id);
   };
@@ -373,7 +558,12 @@ export default function TasksPage() {
       }
 
       const isGroup = editForm.assignmentMode === "group";
-      const groupIds = isGroup ? editForm.groupAssigneeIds.filter(Boolean) : [];
+      const groupIds = isGroup ? [...new Set(editAccessControl.userGrants.map((g) => g.userId))] : [];
+      if (isGroup && groupIds.length === 0) {
+        toast.error("Add at least one person in Roles & permissions → By person.");
+        setEditSubmitting(false);
+        return;
+      }
       const aid =
         isGroup
           ? groupIds[0] || currentUser.id
@@ -403,9 +593,11 @@ export default function TasksPage() {
         priority: editForm.priority,
         tags,
         dependsOnTaskId: editForm.dependsOnTaskId || null,
+        accessControl: isGroup ? editAccessControl : { roleGrants: [], userGrants: [] },
       });
       if (res.success) {
         toast.success("Task updated");
+        setEditAccessPickerOpen(false);
         setEditModalTaskId(null);
         await refreshTasks();
       } else toast.error(res.error || "Update failed");
@@ -472,37 +664,51 @@ export default function TasksPage() {
           )}
         </motion.div>
 
-        <motion.div variants={fadeUp} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b pb-2">
+        <motion.div variants={fadeUp} className="space-y-3 border-b pb-4">
           <div className="flex gap-2 overflow-x-auto">
-          {(["All", ...STATUSES] as const).map((tab) => (
-            <button key={tab} onClick={() => setActiveFilter(tab)}
-              className={`pb-2.5 px-4 text-sm font-medium transition-all relative whitespace-nowrap ${activeFilter === tab ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-              {tab} {activeFilter === tab && <motion.div layoutId="filter-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
-            </button>
-          ))}
+            {(["All", ...STATUSES] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveFilter(tab)}
+                className={`relative whitespace-nowrap px-4 pb-2.5 text-sm font-medium transition-all ${
+                  activeFilter === tab ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tab}{" "}
+                {activeFilter === tab && <motion.div layoutId="filter-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+              </button>
+            ))}
           </div>
-          <div className="flex rounded-lg border bg-muted/40 p-0.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => setViewMode("table")}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${viewMode === "table" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
-            >
-              <List className="h-3.5 w-3.5" /> Table
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("board")}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${viewMode === "board" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" /> Board
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("calendar")}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${viewMode === "calendar" ? "bg-card shadow-sm" : "text-muted-foreground"}`}
-            >
-              <CalendarDays className="h-3.5 w-3.5" /> Calendar
-            </button>
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">View layout</p>
+            <div className="flex flex-wrap gap-2">
+              {TASK_VIEW_OPTIONS.map((opt) => {
+                const Icon = opt.icon;
+                const selected = viewMode === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setViewMode(opt.id)}
+                    className={`flex min-w-[5.5rem] flex-1 flex-col items-center gap-1.5 rounded-xl border px-2 py-2.5 text-center transition-all sm:min-w-[6.5rem] sm:flex-none sm:px-3 ${
+                      selected
+                        ? "border-primary bg-primary/5 shadow-sm ring-2 ring-primary/25"
+                        : "border-border bg-card/80 hover:border-primary/40 hover:bg-muted/50"
+                    }`}
+                  >
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-lg ring-1 ${opt.iconWrap}`}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="text-[11px] font-semibold leading-tight text-foreground sm:text-xs">{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm text-foreground shadow-sm sm:px-4">
+              <span className="font-medium text-primary">{TASK_VIEW_OPTIONS.find((v) => v.id === viewMode)?.label}</span>
+              <span className="text-muted-foreground"> — </span>
+              <span className="text-muted-foreground">{TASK_VIEW_OPTIONS.find((v) => v.id === viewMode)?.description}</span>
+            </div>
           </div>
         </motion.div>
 
@@ -569,7 +775,7 @@ export default function TasksPage() {
           </motion.div>
         )}
 
-        {viewMode === "board" && (
+        {viewMode === "kanban" && (
           <motion.div variants={fadeUp} className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {STATUSES.map((status) => (
               <div
@@ -610,6 +816,44 @@ export default function TasksPage() {
                 </div>
               </div>
             ))}
+          </motion.div>
+        )}
+
+        {viewMode === "cards" && (
+          <motion.div variants={fadeUp} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {filtered.map((task) => (
+              <button
+                key={task.id}
+                type="button"
+                onClick={() => setSelectedTaskId(task.id)}
+                className={`rounded-2xl border bg-card p-4 text-left shadow-card transition hover:shadow-card-hover ${
+                  isDailyTaskRow(task) ? DAILY_TASK_SURFACE_CLASS : ""
+                } ${isTaskOverdue(task) ? "border-rose-300 dark:border-rose-800" : ""}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-base font-semibold text-foreground">{task.title}</p>
+                  {isDailyTaskRow(task) ? <span className={DAILY_TASK_BADGE_CLASS}>Daily</span> : null}
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">{task.category}</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${priorityStyle[task.priority]}`}>{task.priority}</span>
+                  <span className="text-xs text-muted-foreground">{task.assigneeName}</span>
+                </div>
+                <p className="mt-2 text-xs font-medium text-muted-foreground">{task.deadline}</p>
+              </button>
+            ))}
+          </motion.div>
+        )}
+
+        {viewMode === "gantt" && (
+          <motion.div variants={fadeUp} className="overflow-x-auto rounded-2xl border bg-card p-4 shadow-card">
+            <GanttStrip tasks={filtered} onSelectTask={(id) => setSelectedTaskId(id)} />
+          </motion.div>
+        )}
+
+        {viewMode === "timeline" && (
+          <motion.div variants={fadeUp} className="rounded-2xl border bg-card p-6 shadow-card">
+            <TimelineList tasks={filtered} priorityStyle={priorityStyle} onSelect={(id) => setSelectedTaskId(id)} />
           </motion.div>
         )}
 
@@ -722,32 +966,83 @@ export default function TasksPage() {
       <AnimatePresence>
         {showModal && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowModal(false)} className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="fixed inset-0 z-[101] flex items-center justify-center p-4">
-              <div className="w-full max-w-md bg-card rounded-2xl shadow-2xl border">
-                <div className="px-6 py-4 border-b flex justify-between items-center"><h2 className="font-bold">Create New Task</h2><button onClick={() => setShowModal(false)}><X className="h-5 w-5"/></button></div>
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    <div className="space-y-1.5 font-medium"><Label>Task Title</Label><Input value={form.title} onChange={e=>setForm({...form, title: e.target.value})} placeholder="e.g. Design YouTube Thumbnail" /></div>
-                    <div className="space-y-1.5"><Label>Task type</Label>
-                      <select value={form.taskKind} onChange={e=>setForm({...form, taskKind: e.target.value as TaskKind, deadlineLocal: e.target.value === "daily" ? "" : form.deadlineLocal})} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowModal(false)}
+              className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm"
+              aria-hidden
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              transition={{ type: "spring", stiffness: 380, damping: 32 }}
+              className="fixed inset-0 z-[101] flex max-sm:items-end sm:items-center sm:justify-center sm:p-4"
+            >
+              <div className="flex max-h-[100dvh] w-screen max-w-[560px] flex-col overflow-hidden rounded-none border-0 border-border bg-card shadow-2xl sm:max-h-[min(92vh,760px)] sm:w-full sm:rounded-2xl sm:border">
+                <div className="flex shrink-0 items-center justify-between border-b px-4 py-3 sm:px-6 sm:py-4">
+                  <h2 className="text-lg font-bold text-foreground sm:text-xl">Create New Task</h2>
+                  <button type="button" className="rounded-lg p-2 text-muted-foreground hover:bg-muted" onClick={() => setShowModal(false)} aria-label="Close">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <form id="create-task-form" onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+                  <div className="create-task-scroll min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 [&_input]:min-h-[44px] [&_input]:text-base [&_select]:min-h-[44px] [&_select]:text-base [&_textarea]:min-h-[5.5rem] [&_textarea]:text-base sm:[&_input]:text-sm sm:[&_select]:text-sm sm:[&_textarea]:text-sm">
+                    <div className="space-y-1.5">
+                      <Label className="text-base sm:text-sm">Task Title</Label>
+                      <Input
+                        value={form.title}
+                        onChange={(e) => setForm({ ...form, title: e.target.value })}
+                        placeholder="e.g. Design YouTube Thumbnail"
+                        className="text-base sm:text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-base sm:text-sm">Task type</Label>
+                      <select
+                        value={form.taskKind}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            taskKind: e.target.value as TaskKind,
+                            deadlineLocal: e.target.value === "daily" ? "" : form.deadlineLocal,
+                          })
+                        }
+                        className="flex w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm"
+                      >
                         <option value="daily">Daily task</option>
                         <option value="one_time">One-time task</option>
                         <option value="deadline_based">Deadline-based task</option>
                       </select>
                     </div>
                     {form.taskKind === "daily" ? (
-                      <div className="rounded-lg border border-teal-600/40 bg-teal-50/80 px-3 py-2 text-sm text-teal-950 dark:bg-teal-950/40 dark:text-teal-50">
+                      <div className="rounded-lg border border-teal-600/40 bg-teal-50/80 px-3 py-2 text-base text-teal-950 dark:bg-teal-950/40 dark:text-teal-50 sm:text-sm">
                         Daily task — no specific date
                       </div>
                     ) : (
                       <div className="space-y-1.5">
-                        <Label>{form.taskKind === "deadline_based" ? "Deadline (date & time)" : "Deadline (optional)"}</Label>
-                        <Input type="datetime-local" value={form.deadlineLocal} onChange={e=>setForm({...form, deadlineLocal: e.target.value})} />
+                        <Label className="text-base sm:text-sm">
+                          {form.taskKind === "deadline_based" ? "Deadline (date & time)" : "Deadline (optional)"}
+                        </Label>
+                        <Input
+                          type="datetime-local"
+                          value={form.deadlineLocal}
+                          onChange={(e) => setForm({ ...form, deadlineLocal: e.target.value })}
+                          className="text-base sm:text-sm"
+                        />
                       </div>
                     )}
                     <div className="space-y-1.5">
-                      <Label>Description / notes (optional)</Label>
-                      <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="Context, links, acceptance criteria…" className="resize-y text-sm" />
+                      <Label className="text-base sm:text-sm">Description / notes (optional)</Label>
+                      <Textarea
+                        value={form.notes}
+                        onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                        rows={3}
+                        placeholder="Context, links, acceptance criteria…"
+                        className="resize-y text-base sm:text-sm"
+                      />
                     </div>
                     <AssignmentTimeField
                       value24={form.assignedTime24}
@@ -757,7 +1052,7 @@ export default function TasksPage() {
                       idPrefix="create-task"
                     />
                     <div className="space-y-1.5">
-                      <Label>Assignment</Label>
+                      <Label className="text-base sm:text-sm">Assignment</Label>
                       <select
                         value={form.assignmentMode}
                         onChange={(e) => {
@@ -766,87 +1061,101 @@ export default function TasksPage() {
                           setForm({
                             ...form,
                             assignmentMode: mode,
-                            groupAssigneeIds: mode === "group" ? (form.groupAssigneeIds.length ? form.groupAssigneeIds : first ? [first] : []) : form.groupAssigneeIds,
+                            groupAssigneeIds:
+                              mode === "group"
+                                ? form.groupAssigneeIds.length
+                                  ? form.groupAssigneeIds
+                                  : first
+                                    ? [first]
+                                    : []
+                                : form.groupAssigneeIds,
                           });
                         }}
-                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        className="flex w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm"
                       >
                         <option value="individual">Individual (one owner)</option>
                         <option value="group">Group task (shared)</option>
                       </select>
                     </div>
-                    <div className={`grid gap-4 ${form.assignmentMode === "individual" ? "grid-cols-2" : "grid-cols-1"}`}>
-                        <div className="space-y-1.5">
-                          <Label>Category</Label>
-                          <select
-                            value={form.category}
-                            onChange={async (e) => {
-                              const v = e.target.value;
-                              if (v === "__add__") {
-                                setShowNewCategoryInput(true);
-                                return;
-                              }
-                              setForm({ ...form, category: v });
-                            }}
-                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                          >
-                            {categories.map((c) => (
-                              <option key={c} value={c}>{c}</option>
-                            ))}
-                            <option value="__add__">+ Add new category</option>
-                          </select>
-                          {showNewCategoryInput ? (
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                              <Input
-                                value={newCategoryName}
-                                onChange={(e) => setNewCategoryName(e.target.value)}
-                                placeholder="New category name"
-                                className="h-9 flex-1"
-                              />
-                              <Button
-                                type="button"
-                                size="sm"
-                                disabled={savingCategory || !newCategoryName.trim()}
-                                onClick={async () => {
-                                  await persistNewCategory(newCategoryName);
-                                  setForm((f) => ({ ...f, category: newCategoryName.trim() || f.category }));
-                                  setNewCategoryName("");
-                                  setShowNewCategoryInput(false);
-                                }}
-                              >
-                                Save
-                              </Button>
-                            </div>
-                          ) : null}
-                        </div>
-                        {form.assignmentMode === "individual" ? (
-                          <div className="space-y-1.5">
-                            <Label>Assign to</Label>
-                            <select value={form.assignedToId} onChange={(e) => setForm({ ...form, assignedToId: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
-                              <option value="">Select…</option>
-                              {assignees.map((a) => (
-                                <option key={a.id} value={a.id}>
-                                  {a.name} ({a.role})
-                                </option>
-                              ))}
-                            </select>
+                    <div className={`grid grid-cols-1 gap-4 ${form.assignmentMode === "individual" ? "sm:grid-cols-2" : ""}`}>
+                      <div className="space-y-1.5">
+                        <Label className="text-base sm:text-sm">Category</Label>
+                        <select
+                          value={form.category}
+                          onChange={async (e) => {
+                            const v = e.target.value;
+                            if (v === "__add__") {
+                              setShowNewCategoryInput(true);
+                              return;
+                            }
+                            setForm({ ...form, category: v });
+                          }}
+                          className="flex w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm"
+                        >
+                          {categories.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                          <option value="__add__">+ Add new category</option>
+                        </select>
+                        {showNewCategoryInput ? (
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <Input
+                              value={newCategoryName}
+                              onChange={(e) => setNewCategoryName(e.target.value)}
+                              placeholder="New category name"
+                              className="min-h-[44px] flex-1 text-base sm:text-sm"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={savingCategory || !newCategoryName.trim()}
+                              onClick={async () => {
+                                await persistNewCategory(newCategoryName);
+                                setForm((f) => ({ ...f, category: newCategoryName.trim() || f.category }));
+                                setNewCategoryName("");
+                                setShowNewCategoryInput(false);
+                              }}
+                            >
+                              Save
+                            </Button>
                           </div>
                         ) : null}
+                      </div>
+                      {form.assignmentMode === "individual" ? (
+                        <div className="space-y-1.5">
+                          <Label className="text-base sm:text-sm">Assign to</Label>
+                          <select
+                            value={form.assignedToId}
+                            onChange={(e) => setForm({ ...form, assignedToId: e.target.value })}
+                            className="flex w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm"
+                          >
+                            <option value="">Select…</option>
+                            {assignees.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.name} ({a.role})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : null}
                     </div>
                     {form.assignmentMode === "group" ? (
                       <div className="space-y-1.5">
-                        <Label>Team members</Label>
-                        <div className="max-h-36 space-y-2 overflow-y-auto rounded-md border border-input bg-background p-2 text-sm">
+                        <Label className="text-base sm:text-sm">Team members</Label>
+                        <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border border-input bg-background p-2 text-base sm:max-h-36 sm:text-sm">
                           {assignees.length === 0 ? (
                             <p className="text-muted-foreground">No assignees available.</p>
                           ) : (
                             assignees.map((a) => {
                               const checked = form.groupAssigneeIds.includes(a.id);
                               return (
-                                <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 hover:bg-muted/60">
+                                <label key={a.id} className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded px-1 py-1 hover:bg-muted/60 sm:min-h-0 sm:py-0.5">
                                   <input
                                     type="checkbox"
                                     checked={checked}
+                                    className="h-4 w-4 shrink-0"
                                     onChange={() => {
                                       setForm((prev) => {
                                         const set = new Set(prev.groupAssigneeIds);
@@ -869,28 +1178,57 @@ export default function TasksPage() {
                         </p>
                       </div>
                     ) : null}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="space-y-1.5">
-                        <Label>Priority</Label>
-                        <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as TaskPriority })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
-                          {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+                        <Label className="text-base sm:text-sm">Priority</Label>
+                        <select
+                          value={form.priority}
+                          onChange={(e) => setForm({ ...form, priority: e.target.value as TaskPriority })}
+                          className="flex w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm"
+                        >
+                          {PRIORITIES.map((p) => (
+                            <option key={p} value={p}>
+                              {p}
+                            </option>
+                          ))}
                         </select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label>Depends on (optional)</Label>
-                        <select value={form.dependsOnTaskId} onChange={(e) => setForm({ ...form, dependsOnTaskId: e.target.value })} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+                        <Label className="text-base sm:text-sm">Depends on (optional)</Label>
+                        <select
+                          value={form.dependsOnTaskId}
+                          onChange={(e) => setForm({ ...form, dependsOnTaskId: e.target.value })}
+                          className="flex w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm"
+                        >
                           <option value="">None</option>
-                          {tasks.filter((t) => t.id).map((t) => (
-                            <option key={t.id} value={t.id}>{t.title}</option>
-                          ))}
+                          {tasks
+                            .filter((t) => t.id)
+                            .map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.title}
+                              </option>
+                            ))}
                         </select>
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Tags (comma-separated)</Label>
-                      <Input value={form.tagsStr} onChange={(e) => setForm({ ...form, tagsStr: e.target.value })} placeholder="urgent, client-a" className="h-9" />
+                      <Label className="text-base sm:text-sm">Tags (comma-separated)</Label>
+                      <Input
+                        value={form.tagsStr}
+                        onChange={(e) => setForm({ ...form, tagsStr: e.target.value })}
+                        placeholder="urgent, client-a"
+                        className="text-base sm:text-sm"
+                      />
                     </div>
-                    <Button type="submit" className="w-full h-10">Create Task & Send Notify</Button>
+                  </div>
+                  <div className="sticky bottom-0 z-10 flex shrink-0 gap-2 border-t border-border bg-card/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/90 sm:static sm:border-t-0 sm:bg-transparent sm:px-6 sm:pb-6 sm:pt-2">
+                    <Button type="button" variant="outline" className="min-h-[44px] flex-1 text-base sm:flex-none sm:px-6 sm:text-sm" onClick={() => setShowModal(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" className="min-h-[44px] flex-1 text-base sm:flex-1 sm:text-sm">
+                      Create Task &amp; notify
+                    </Button>
+                  </div>
                 </form>
               </div>
             </motion.div>
@@ -902,12 +1240,27 @@ export default function TasksPage() {
       <AnimatePresence>
         {editModalTaskId && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setEditModalTaskId(null)} className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm" />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setEditAccessPickerOpen(false);
+                setEditModalTaskId(null);
+              }}
+              className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm"
+            />
             <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="fixed inset-0 z-[101] flex items-center justify-center p-4">
               <div className="max-h-[min(92vh,720px)] w-full max-w-lg overflow-y-auto rounded-2xl border bg-card shadow-2xl">
                 <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-card px-6 py-4">
                   <h2 className="font-bold">Edit task</h2>
-                  <button type="button" onClick={() => setEditModalTaskId(null)}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditAccessPickerOpen(false);
+                      setEditModalTaskId(null);
+                    }}
+                  >
                     <X className="h-5 w-5" />
                   </button>
                 </div>
@@ -970,6 +1323,19 @@ export default function TasksPage() {
                           groupAssigneeIds:
                             mode === "group" ? (editForm.groupAssigneeIds.length ? editForm.groupAssigneeIds : first ? [first] : []) : editForm.groupAssigneeIds,
                         });
+                        if (mode === "group") {
+                          setEditAccessControl((prev) => ({
+                            ...prev,
+                            userGrants:
+                              prev.userGrants.length > 0
+                                ? prev.userGrants
+                                : first
+                                  ? [{ userId: first, access: "Editor" as const }]
+                                  : [],
+                          }));
+                        } else {
+                          setEditAccessControl({ roleGrants: [], userGrants: [] });
+                        }
                       }}
                       className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                     >
@@ -1018,32 +1384,39 @@ export default function TasksPage() {
                     ) : null}
                   </div>
                   {editForm.assignmentMode === "group" ? (
-                    <div className="space-y-1.5">
-                      <Label>Team members</Label>
-                      <div className="max-h-36 space-y-2 overflow-y-auto rounded-md border border-input bg-background p-2 text-sm">
-                        {assignees.map((a) => {
-                          const checked = editForm.groupAssigneeIds.includes(a.id);
-                          return (
-                            <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 hover:bg-muted/60">
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => {
-                                  setEditForm((prev) => {
-                                    const set = new Set(prev.groupAssigneeIds);
-                                    if (set.has(a.id)) set.delete(a.id);
-                                    else set.add(a.id);
-                                    return { ...prev, groupAssigneeIds: Array.from(set) };
-                                  });
-                                }}
-                              />
-                              <span>
-                                {a.name} <span className="text-muted-foreground">({a.role})</span>
-                              </span>
-                            </label>
-                          );
-                        })}
+                    <div className="space-y-2">
+                      <Label>Roles &amp; permissions</Label>
+                      <button
+                        type="button"
+                        onClick={() => setEditAccessPickerOpen(true)}
+                        className="flex w-full min-h-[44px] items-center justify-center rounded-lg border border-dashed border-input bg-muted/30 px-3 text-sm font-medium text-foreground transition hover:border-primary/50 hover:bg-muted/50"
+                      >
+                        Open picker…
+                      </button>
+                      <div className="flex min-h-[2rem] flex-wrap gap-1.5">
+                        {editAccessControl.roleGrants.map((lvl) => (
+                          <span
+                            key={`r-${lvl}`}
+                            className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground"
+                          >
+                            Role: {lvl}
+                          </span>
+                        ))}
+                        {editAccessControl.userGrants.map((g) => (
+                          <span
+                            key={g.userId}
+                            className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground"
+                          >
+                            {users.find((u) => u.id === g.userId)?.name || g.userId} — {g.access}
+                          </span>
+                        ))}
+                        {editAccessControl.roleGrants.length === 0 && editAccessControl.userGrants.length === 0 ? (
+                          <span className="text-xs italic text-muted-foreground">None selected</span>
+                        ) : null}
                       </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Group tasks need at least one person on the By person tab. Role labels are stored with the task.
+                      </p>
                     </div>
                   ) : null}
                   <div className="grid grid-cols-2 gap-4">
@@ -1082,7 +1455,15 @@ export default function TasksPage() {
                     <Input value={editForm.tagsStr} onChange={(e) => setEditForm({ ...editForm, tagsStr: e.target.value })} className="h-9" />
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                    <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setEditModalTaskId(null)}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      onClick={() => {
+                        setEditAccessPickerOpen(false);
+                        setEditModalTaskId(null);
+                      }}
+                    >
                       Cancel
                     </Button>
                     <Button type="submit" className="w-full sm:w-auto" disabled={editSubmitting}>
@@ -1095,6 +1476,14 @@ export default function TasksPage() {
           </>
         )}
       </AnimatePresence>
+
+      <TaskRolesPermissionsPicker
+        open={editAccessPickerOpen}
+        onClose={() => setEditAccessPickerOpen(false)}
+        pool={assignees}
+        value={editAccessControl}
+        onChange={setEditAccessControl}
+      />
 
       {/* Task Detail Modal */}
       <AnimatePresence>
@@ -1125,6 +1514,21 @@ export default function TasksPage() {
                                 })}
                               </ul>
                               <p className="mt-2 text-[11px] font-normal text-muted-foreground">Progress is tracked together on this single task.</p>
+                              {selectedTask.accessControl &&
+                              (selectedTask.accessControl.roleGrants.length > 0 || selectedTask.accessControl.userGrants.length > 0) ? (
+                                <div className="mt-3 rounded-lg border border-border bg-muted/20 p-2 text-xs font-normal">
+                                  <span className="font-semibold text-foreground">Roles &amp; permissions: </span>
+                                  <span className="text-muted-foreground">
+                                    {[
+                                      ...selectedTask.accessControl.roleGrants.map((r) => `Role ${r}`),
+                                      ...selectedTask.accessControl.userGrants.map((g) => {
+                                        const u = users.find((x) => x.id === g.userId);
+                                        return `${u?.name || g.userId} (${g.access})`;
+                                      }),
+                                    ].join(" · ") || "—"}
+                                  </span>
+                                </div>
+                              ) : null}
                             </div>
                           ) : (
                             <div><span className="text-muted-foreground mr-2">Assignee:</span> {selectedTask.assigneeName}</div>

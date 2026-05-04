@@ -23,6 +23,7 @@ const userSchema = new mongoose.Schema(
     companyId: { type: String, default: null },
     companyRoleId: { type: String, default: null },
     profilePhotoUrl: { type: String, default: null },
+    preferences: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },

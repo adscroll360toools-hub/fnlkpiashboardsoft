@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Save, Bell, Shield, Clock, X, UserCheck, ChevronRight } from "lucide-react";
+import { Save, Bell, Shield, Clock, X, UserCheck, ChevronRight, Sparkles } from "lucide-react";
+import { ThemeAppearancePicker } from "@/components/ThemeAppearancePicker";
 import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
@@ -330,6 +331,15 @@ export default function SettingsPage() {
               Change Password
             </Button>
           </div>
+        </motion.div>
+
+        <motion.div variants={fadeUp} className="rounded-2xl bg-card p-6 shadow-card space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <h2 className="text-base font-semibold text-foreground">Appearance</h2>
+          </div>
+          <p className="text-xs text-muted-foreground">Choose a color theme for the interface. Your choice is saved locally and on your profile.</p>
+          <ThemeAppearancePicker />
         </motion.div>
 
         {currentUser?.role === "admin" && attendanceSnapshot && (

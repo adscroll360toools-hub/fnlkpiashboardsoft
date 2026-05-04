@@ -53,7 +53,8 @@
     --warning-foreground: 0 0% 100%;
   }
 
-  .dark {
+  .dark,
+  html[data-theme="dark"] {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
     --card: 240 10% 6%;
@@ -81,6 +82,43 @@
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 240 4% 16%;
     --sidebar-ring: 217 91% 70%;
+    --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+    --shadow-card-hover: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 16px -4px rgba(0, 0, 0, 0.5);
+    --gradient-progress: linear-gradient(90deg, hsl(217, 91%, 60%), hsl(217, 91%, 72%));
+  }
+
+  /* Accent theme: warm light workspace with coral primary */
+  html[data-theme="ocean"] {
+    --background: 40 40% 98%;
+    --foreground: 24 25% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 24 25% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 24 25% 12%;
+    --primary: 16 86% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 35 30% 94%;
+    --secondary-foreground: 24 25% 12%;
+    --muted: 35 25% 94%;
+    --muted-foreground: 24 12% 42%;
+    --accent: 187 55% 38%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 35 20% 88%;
+    --input: 35 20% 92%;
+    --ring: 16 86% 52%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 24 25% 12%;
+    --sidebar-primary: 16 86% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 35 30% 95%;
+    --sidebar-accent-foreground: 24 25% 12%;
+    --sidebar-border: 35 20% 90%;
+    --sidebar-ring: 16 86% 52%;
+    --shadow-card: 0 0 0 1px rgba(120, 80, 40, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-card-hover: 0 0 0 1px rgba(120, 80, 40, 0.08), 0 6px 14px rgba(0, 0, 0, 0.07);
+    --gradient-progress: linear-gradient(90deg, hsl(16, 86%, 52%), hsl(28, 90%, 58%));
   }
 }
 

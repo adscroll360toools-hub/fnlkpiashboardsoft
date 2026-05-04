@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Save, Bell, Shield, Clock, Key, X, Eye, EyeOff } from "lucide-react";
+import { Save, Bell, Shield, Clock, Key, X, Eye, EyeOff, Sparkles } from "lucide-react";
+import { ThemeAppearancePicker } from "@/components/ThemeAppearancePicker";
 import { ProfilePhotoUploader } from "@/components/ProfilePhotoUploader";
 import { toast } from "sonner";
 
@@ -123,6 +124,15 @@ export default function PortalSettingsPage() {
                             <Key className="h-3.5 w-3.5" /> Change Password
                         </Button>
                     </div>
+                </motion.div>
+
+                <motion.div variants={fadeUp} className="rounded-2xl bg-card p-6 shadow-card space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <h2 className="text-base font-semibold text-foreground">Appearance</h2>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Pick a theme for the portal. It applies instantly and syncs to your account.</p>
+                    <ThemeAppearancePicker />
                 </motion.div>
 
                 {/* Notifications */}
