@@ -58,17 +58,16 @@ export function isTaskAssignedTo(t: AppTask, userId: string): boolean {
   return Array.isArray(t.assigneeIds) && t.assigneeIds.includes(userId);
 }
 
-/** Who may open the Edit Task flow: admins, controllers, the person who created the task, or assigned employees. */
+/**
+ * Who may open Edit Task / full PATCH: only the user who created the task (`assignedById`).
+ * Admins, controllers, and assignees do not get edit unless they are the creator.
+ */
 export function canUserEditTask(
   t: AppTask,
-  user: { id: string; role: string } | null | undefined
+  user: { id: string; role?: string } | null | undefined
 ): boolean {
   if (!user?.id) return false;
-  if (user.role === "admin") return true;
-  if (user.role === "controller") return true;
-  if (t.assignedById && String(t.assignedById) === String(user.id)) return true;
-  if (user.role === "employee" && isTaskAssignedTo(t, user.id)) return true;
-  return false;
+  return !!t.assignedById && String(t.assignedById) === String(user.id);
 }
 
 export function visibleTasksForUser(tasks: AppTask[], userId: string | undefined, scope: "self" | "company"): AppTask[] {
