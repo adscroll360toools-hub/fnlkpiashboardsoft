@@ -53,7 +53,7 @@ allowedOrigins.push('http://localhost:8080');
 allowedOrigins.push('http://localhost:5173');
 allowedOrigins.push('https://kpi-ad-scroll360.vercel.app');
 allowedOrigins.push('https://kpiadscroll360.vercel.app');
-allowedOrigins.push('https://workspace.adscroll360.com');
+allowedOrigins.push('https://app.zaptiz.com');
 
 app.use(cors({
   origin: (origin, callback) => {
