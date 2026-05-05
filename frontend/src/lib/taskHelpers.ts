@@ -59,14 +59,18 @@ export function isTaskAssignedTo(t: AppTask, userId: string): boolean {
 }
 
 /**
- * Who may open Edit Task / full PATCH: only the user who created the task (`assignedById`).
- * Admins, controllers, and assignees do not get edit unless they are the creator.
+ * Edit permission mirrors backend:
+ * - admins/controllers can edit
+ * - assignees can edit
+ * - task creator can edit
  */
 export function canUserEditTask(
   t: AppTask,
   user: { id: string; role?: string } | null | undefined
 ): boolean {
   if (!user?.id) return false;
+  if (user.role === "admin" || user.role === "controller") return true;
+  if (isTaskAssignedTo(t, user.id)) return true;
   return !!t.assignedById && String(t.assignedById) === String(user.id);
 }
 

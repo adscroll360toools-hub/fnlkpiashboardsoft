@@ -18,6 +18,7 @@ interface SkillRow {
   skill: string;
   progress: number;
   target: number;
+  deadlineAt?: string | null;
 }
 
 function mapSkill(s: any): SkillRow {
@@ -29,6 +30,7 @@ function mapSkill(s: any): SkillRow {
     skill: s.skill,
     progress: s.progress ?? 0,
     target: s.target ?? 100,
+    deadlineAt: s.deadlineAt ? new Date(s.deadlineAt).toISOString() : null,
   };
 }
 
@@ -50,6 +52,7 @@ export default function SkillsPage() {
     skill: "",
     progress: 50,
     target: 100,
+    deadlineAt: "",
   });
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -89,6 +92,7 @@ export default function SkillsPage() {
       skill: "",
       progress: 50,
       target: 100,
+      deadlineAt: "",
     });
     setFormError("");
     setShowModal(true);
@@ -125,6 +129,7 @@ export default function SkillsPage() {
         skill: form.skill.trim(),
         progress: form.progress,
         target: form.target,
+        deadlineAt: form.deadlineAt || null,
       });
       toast.success("Skill saved to database", { description: `${form.skill} → ${u.name}` });
       setShowModal(false);
@@ -202,6 +207,11 @@ export default function SkillsPage() {
                   <div className="w-36 shrink-0">
                     <p className="text-sm font-medium text-foreground">{item.userName}</p>
                     <p className="text-xs capitalize text-muted-foreground">{item.role || "—"}</p>
+                    {item.deadlineAt ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        Deadline: {new Date(item.deadlineAt).toLocaleDateString()}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="min-w-0 flex-1">
                     <KPIProgressBar label={item.skill} current={item.progress} target={item.target} unit="%" />
@@ -335,6 +345,16 @@ export default function SkillsPage() {
                         max={100}
                         value={form.target}
                         onChange={(e) => setForm({ ...form, target: Number(e.target.value) })}
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1.5 col-span-2">
+                      <Label htmlFor="skill-deadline">Skill Deadline (optional)</Label>
+                      <Input
+                        id="skill-deadline"
+                        type="datetime-local"
+                        value={form.deadlineAt}
+                        onChange={(e) => setForm({ ...form, deadlineAt: e.target.value })}
                         className="h-9"
                       />
                     </div>

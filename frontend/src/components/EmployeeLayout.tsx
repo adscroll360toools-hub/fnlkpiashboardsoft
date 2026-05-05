@@ -7,7 +7,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LayoutDashboard, ClipboardCheck, CalendarClock, Trophy, Settings, LogOut, Bell, X, Menu, MessageSquare, StickyNote, BookOpen, Gift } from "lucide-react";
 import { DelayedTaskNotificationBar } from "@/components/DelayedTaskNotificationBar";
 import { RewardAnnouncementBanner } from "@/components/RewardAnnouncementBanner";
-import { toast } from "sonner";
 
 const navItems = [
     { label: "Dashboard", to: "/employee/dashboard", icon: LayoutDashboard },
@@ -28,6 +27,7 @@ export function EmployeeLayout() {
     const [notifOpen, setNotifOpen] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [dismissedNotifIds, setDismissedNotifIds] = useState<Set<string>>(new Set());
+    const [showStandupReminder, setShowStandupReminder] = useState(false);
     const notifRef = useRef<HTMLDivElement>(null);
 
     // Merge system notifications
@@ -66,9 +66,17 @@ export function EmployeeLayout() {
         const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
         const key = `standup-reminder:${currentUser.id}:${ymd}`;
         if (localStorage.getItem(key)) return;
-        localStorage.setItem(key, "1");
-        toast("Please fill Daily Standups", { duration: 5000 });
+        setShowStandupReminder(true);
     }, [currentUser?.id]);
+
+    const closeStandupReminder = () => {
+        if (currentUser?.id) {
+            const now = new Date();
+            const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+            localStorage.setItem(`standup-reminder:${currentUser.id}:${ymd}`, "1");
+        }
+        setShowStandupReminder(false);
+    };
 
     const handleLogout = () => { logout(); navigate("/login", { replace: true }); };
 
@@ -191,6 +199,27 @@ export function EmployeeLayout() {
                     </div>
                 </header>
                 <DelayedTaskNotificationBar scope="self" />
+                <AnimatePresence>
+                    {showStandupReminder ? (
+                        <motion.div
+                            initial={{ opacity: 0, y: -8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            className="mx-4 mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200"
+                        >
+                            <div className="flex items-center justify-between gap-3">
+                                <span>Please fill Daily Standups.</span>
+                                <button
+                                    type="button"
+                                    onClick={closeStandupReminder}
+                                    className="rounded-md px-2 py-1 text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-900/40"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </motion.div>
+                    ) : null}
+                </AnimatePresence>
                 <RewardAnnouncementBanner />
                 <main className="flex-1 overflow-auto p-6 lg:p-8">
                     <Outlet />

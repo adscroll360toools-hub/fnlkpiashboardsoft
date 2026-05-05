@@ -22,11 +22,13 @@ async function assertTaskAccess(task, actorUserId, companyId) {
   return actor;
 }
 
-/** Full task edit (PATCH): task creator (`assignedById`) only — not admin/controller/assignee unless they created it. */
+/** Full task edit (PATCH): admin/controller or any assigned participant, plus creator. */
 async function assertTaskEditAccess(task, actorUserId, companyId) {
   if (!actorUserId) return null;
   const actor = await User.findOne({ _id: actorUserId, companyId });
   if (!actor) return null;
+  if (['admin', 'controller'].includes(actor.role)) return actor;
+  if (assigneeIdSet(task).has(String(actorUserId))) return actor;
   if (task.assignedById && String(task.assignedById) === String(actorUserId)) return actor;
   return null;
 }

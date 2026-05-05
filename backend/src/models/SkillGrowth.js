@@ -9,6 +9,7 @@ const skillGrowthSchema = new mongoose.Schema(
     skill: { type: String, required: true, trim: true },
     progress: { type: Number, default: 0, min: 0, max: 100 },
     target: { type: Number, default: 100, min: 1, max: 100 },
+    deadlineAt: { type: Date, default: null },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
