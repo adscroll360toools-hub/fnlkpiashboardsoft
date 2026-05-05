@@ -5,7 +5,7 @@ import { getEffectivePermissions } from "@/lib/permissions";
 import { normalizeAccessControl, type TaskAccessControl } from "@/lib/taskAccess";
 
 export type TaskStatus = "Pending" | "In Progress" | "Completed" | "Approved";
-export type TaskKind = "daily" | "one_time" | "deadline_based";
+export type TaskKind = "daily" | "one_time" | "deadline_based" | "other";
 export type TaskPriority = "Low" | "Medium" | "High";
 
 export interface TaskMessageReaction {

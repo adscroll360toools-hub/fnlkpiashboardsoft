@@ -4,7 +4,7 @@ import { stagger, fadeUp } from "@/lib/animations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BookOpen, Plus, X, Trash2, Loader2 } from "lucide-react";
+import { Plus, X, Trash2, Loader2 } from "lucide-react";
 import { KPIProgressBar } from "@/components/KPIProgressBar";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -19,12 +19,6 @@ interface SkillRow {
   progress: number;
   target: number;
 }
-
-const roleSkills: Record<string, string[]> = {
-  "Video Editor": ["Color Grading", "Storytelling", "Sound Design", "Motion Graphics"],
-  "Graphic Designer": ["Motion Graphics", "AI Tools", "3D Design", "Typography"],
-  "Content Writer": ["Hook Writing", "SEO Captions", "Copywriting", "Storytelling"],
-};
 
 function mapSkill(s: any): SkillRow {
   return {
@@ -242,26 +236,6 @@ export default function SkillsPage() {
           )}
         </motion.div>
 
-        <motion.div variants={fadeUp} className="rounded-2xl bg-card p-6 shadow-card">
-          <h2 className="mb-4 text-base font-semibold text-foreground">Recommended Skills by Role</h2>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {Object.entries(roleSkills).map(([role, skillList]) => (
-              <div key={role} className="rounded-xl bg-muted p-4">
-                <div className="mb-3 flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-primary" />
-                  <p className="text-sm font-semibold text-foreground">{role}</p>
-                </div>
-                <ul className="space-y-1.5">
-                  {skillList.map((sk) => (
-                    <li key={sk} className="text-xs text-muted-foreground">
-                      • {sk}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </motion.div>
       </motion.div>
 
       <AnimatePresence>

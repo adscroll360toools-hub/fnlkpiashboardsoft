@@ -15,6 +15,12 @@ const kpiSchema = new mongoose.Schema(
     unit: { type: String, required: true },
     dailyMin: { type: Number },
     dailyMax: { type: Number },
+    trackingMode: {
+      type: String,
+      enum: ['systematic', 'deadline_based', 'other'],
+      default: 'systematic',
+    },
+    deadlineAt: { type: Date, default: null },
     assignedToId: { type: String },
     assignedToName: { type: String },
     groupId: { type: String },

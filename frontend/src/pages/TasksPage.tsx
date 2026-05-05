@@ -1041,6 +1041,7 @@ export default function TasksPage() {
                         <option value="daily">Daily task</option>
                         <option value="one_time">One-time task</option>
                         <option value="deadline_based">Deadline-based task</option>
+                        <option value="other">Other task</option>
                       </select>
                     </div>
                     {form.taskKind === "daily" ? (
@@ -1313,6 +1314,7 @@ export default function TasksPage() {
                       <option value="daily">Daily task</option>
                       <option value="one_time">One-time task</option>
                       <option value="deadline_based">Deadline-based task</option>
+                      <option value="other">Other task</option>
                     </select>
                   </div>
                   {editForm.taskKind === "daily" ? (
@@ -1523,7 +1525,16 @@ export default function TasksPage() {
                       </div>
                       <div className="space-y-4 text-sm font-medium">
                           <div><span className="text-muted-foreground mr-2">Status:</span> <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${statusConfig[selectedTask.status].color}`}>{selectedTask.status}</span></div>
-                          <div><span className="text-muted-foreground mr-2">Type:</span> {selectedTask.taskKind === "daily" ? "Daily" : selectedTask.taskKind === "deadline_based" ? "Deadline-based" : "One-time"}</div>
+                          <div>
+                            <span className="text-muted-foreground mr-2">Type:</span>{" "}
+                            {selectedTask.taskKind === "daily"
+                              ? "Daily"
+                              : selectedTask.taskKind === "deadline_based"
+                                ? "Deadline-based"
+                                : selectedTask.taskKind === "other"
+                                  ? "Other"
+                                  : "One-time"}
+                          </div>
                           <div><span className="text-muted-foreground mr-2">Assignment:</span> {selectedTask.type === "Group" ? "Group (shared status)" : "Individual"}</div>
                           {selectedTask.type === "Group" && (selectedTask.assigneeIds?.length ?? 0) > 0 ? (
                             <div>

@@ -15,6 +15,8 @@ export interface AppKPI {
     unit: string;
     dailyMin?: number;
     dailyMax?: number;
+    trackingMode?: "systematic" | "deadline_based" | "other";
+    deadlineAt?: string | null;
     assignedToId?: string;
     assignedToName?: string;
     groupId?: string;
@@ -100,6 +102,8 @@ function mapKPI(k: any): AppKPI {
         unit: k.unit,
         dailyMin: k.dailyMin,
         dailyMax: k.dailyMax,
+        trackingMode: k.trackingMode || "systematic",
+        deadlineAt: k.deadlineAt ? new Date(k.deadlineAt).toISOString() : null,
         assignedToId: k.assignedToId,
         assignedToName: k.assignedToName,
         groupId: k.groupId,

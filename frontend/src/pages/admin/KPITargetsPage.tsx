@@ -29,6 +29,8 @@ const emptyForm = {
   dailyMax: 2, 
   target: 20, 
   unit: "pieces",
+  trackingMode: "systematic" as "systematic" | "deadline_based" | "other",
+  deadlineAt: "",
   assignedToId: "",
   groupId: "",
   controllerScopeId: "",
@@ -81,6 +83,7 @@ export default function KPITargetsPage() {
     if (!form.title.trim()) { setFormError("Title is required."); return; }
     if (form.type === "Individual" && !form.assignedToId) { setFormError("Employee assignment is required."); return; }
     if (form.type === "Group" && !form.groupId) { setFormError("Group/Department is required."); return; }
+    if (form.trackingMode === "deadline_based" && !form.deadlineAt) { setFormError("Deadline is required for deadline-based KPI."); return; }
 
     const assignedUser = teamForKpi.find(u => u.id === form.assignedToId);
     
@@ -219,6 +222,12 @@ export default function KPITargetsPage() {
                             {kpi.type === "Individual" && `Assigned to: ${kpi.assignedToName}`}
                             {kpi.type === "Group" && `Group: ${kpi.groupId}`}
                             {kpi.type === "Company" && "Company Wide Objective"}
+                         </p>
+                         <p className="mt-1 text-[11px] text-muted-foreground">
+                           Mode: {kpi.trackingMode === "deadline_based" ? "Deadline-based" : kpi.trackingMode === "other" ? "Other" : "Systematic"}
+                           {kpi.trackingMode === "deadline_based" && kpi.deadlineAt
+                             ? ` · Deadline ${new Date(kpi.deadlineAt).toLocaleString()}`
+                             : ""}
                          </p>
                       </div>
                       <div className="flex items-center gap-4">
@@ -508,6 +517,31 @@ export default function KPITargetsPage() {
                       <Label htmlFor="kpi-unit">Unit</Label>
                       <Input id="kpi-unit" placeholder="pieces, hrs, etc." value={form.unit}
                         onChange={(e) => setForm({ ...form, unit: e.target.value })} className="h-9" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="kpi-mode">Tracking mode</Label>
+                      <select
+                        id="kpi-mode"
+                        value={form.trackingMode}
+                        onChange={(e) => setForm({ ...form, trackingMode: e.target.value as "systematic" | "deadline_based" | "other" })}
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                      >
+                        <option value="systematic">Systematic</option>
+                        <option value="deadline_based">Deadline-based</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="kpi-deadline">Deadline (optional)</Label>
+                      <Input
+                        id="kpi-deadline"
+                        type="datetime-local"
+                        value={form.deadlineAt}
+                        onChange={(e) => setForm({ ...form, deadlineAt: e.target.value })}
+                        className="h-9"
+                      />
                     </div>
                   </div>
 

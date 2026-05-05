@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { DelayedTaskNotificationBar } from "@/components/DelayedTaskNotificationBar";
 import { RewardAnnouncementBanner } from "@/components/RewardAnnouncementBanner";
+import { toast } from "sonner";
 
 const navItems = [
     { label: "Dashboard", to: "/controller/dashboard", icon: LayoutDashboard },
@@ -64,6 +65,16 @@ export function ControllerLayout() {
         if (notifOpen) document.addEventListener("mousedown", handler);
         return () => document.removeEventListener("mousedown", handler);
     }, [notifOpen]);
+
+    useEffect(() => {
+        if (!currentUser?.id) return;
+        const now = new Date();
+        const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        const key = `standup-reminder:${currentUser.id}:${ymd}`;
+        if (localStorage.getItem(key)) return;
+        localStorage.setItem(key, "1");
+        toast("Please fill Daily Standups", { duration: 5000 });
+    }, [currentUser?.id]);
 
     const handleLogout = () => { logout(); navigate("/login", { replace: true }); };
 

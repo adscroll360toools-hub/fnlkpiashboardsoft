@@ -57,7 +57,7 @@ const taskSchema = new mongoose.Schema(
     type: { type: String, enum: ['Individual', 'Group'], default: 'Individual' },
     taskKind: {
       type: String,
-      enum: ['daily', 'one_time', 'deadline_based'],
+      enum: ['daily', 'one_time', 'deadline_based', 'other'],
       default: 'one_time',
     },
     deadlineAt: { type: Date, default: null },

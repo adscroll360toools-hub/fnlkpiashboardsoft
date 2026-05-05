@@ -72,6 +72,7 @@ export default function StandupsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [historyDate, setHistoryDate] = useState(() => localYMD());
   const [modalStandupDate, setModalStandupDate] = useState<string | null>(null);
+  const [showSubmitPulse, setShowSubmitPulse] = useState(false);
 
   const loadStandups = useCallback(async () => {
     if (!companyId) {
@@ -175,6 +176,8 @@ export default function StandupsPage() {
         });
         toast.success("Standup saved", { description: `${u?.name || "Team member"} — submitted for ${todayYmd}.` });
       }
+      setShowSubmitPulse(true);
+      window.setTimeout(() => setShowSubmitPulse(false), 2200);
       setShowModal(false);
       await loadStandups();
     } catch (err: any) {
@@ -210,6 +213,19 @@ export default function StandupsPage() {
   return (
     <>
       <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
+        <AnimatePresence>
+          {showSubmitPulse ? (
+            <motion.div
+              initial={{ opacity: 0, y: -8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 320, damping: 26 }}
+              className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200"
+            >
+              Standup submitted successfully.
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
         <motion.div variants={fadeUp} className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Daily Standups</h1>
