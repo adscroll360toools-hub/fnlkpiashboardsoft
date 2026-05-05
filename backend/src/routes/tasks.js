@@ -18,10 +18,8 @@ async function assertTaskAccess(task, actorUserId, companyId) {
   if (!actorUserId) return null;
   const actor = await User.findOne({ _id: actorUserId, companyId });
   if (!actor) return null;
-  if (['admin', 'controller'].includes(actor.role)) return actor;
-  if (assigneeIdSet(task).has(String(actorUserId))) return actor;
-  if (task.assignedById && String(task.assignedById) === String(actorUserId)) return actor;
-  return null;
+  // Chat is intentionally open to any authenticated user in the same company.
+  return actor;
 }
 
 /** Full task edit (PATCH): task creator (`assignedById`) only — not admin/controller/assignee unless they created it. */
@@ -40,13 +38,57 @@ async function createNotification({
   message,
   senderId = 'system',
   senderName = 'System',
+  audienceType = 'public',
+  targetRole = null,
+  targetUserId = null,
 }) {
   if (!companyId || !title || !message) return;
   try {
-    await Notification.create({ companyId, type, title, message, senderId, senderName });
+    await Notification.create({
+      companyId,
+      type,
+      title,
+      message,
+      senderId,
+      senderName,
+      audienceType,
+      targetRole,
+      targetUserId,
+    });
   } catch (err) {
     console.error('Task notification error:', err);
   }
+}
+
+async function createTaskScopedNotifications({
+  companyId,
+  type = 'Task',
+  title,
+  message,
+  senderId = 'system',
+  senderName = 'System',
+  participantIds = [],
+}) {
+  const uniqueIds = Array.from(new Set((participantIds || []).filter(Boolean).map((id) => String(id))));
+  if (!companyId || !title || !message) return;
+  if (uniqueIds.length === 0) {
+    await createNotification({ companyId, type, title, message, senderId, senderName, audienceType: 'public' });
+    return;
+  }
+  await Promise.all(
+    uniqueIds.map((uid) =>
+      createNotification({
+        companyId,
+        type,
+        title,
+        message,
+        senderId,
+        senderName,
+        audienceType: 'user',
+        targetUserId: uid,
+      })
+    )
+  );
 }
 
 /** GET /api/tasks/analytics — task performance analytics */
@@ -174,13 +216,18 @@ router.post('/', async (req, res, next) => {
     
     const task = await Task.create({ ...req.body, messages: [] });
 
-    await createNotification({
+    const participants = new Set([
+      ...assigneeIdSet(task),
+      String(task.assignedById || ''),
+    ]);
+    await createTaskScopedNotifications({
       companyId,
       type: 'Task',
       title: 'Task Assigned',
       message: `${task.assignedByName || 'Manager'} assigned "${task.title}" to ${task.assigneeName || 'team member'}.`,
       senderId: task.assignedById || 'system',
       senderName: task.assignedByName || 'System',
+      participantIds: Array.from(participants),
     });
 
     res.status(201).json({ task });
@@ -195,13 +242,18 @@ router.patch('/:id/status', async (req, res, next) => {
     const task = await Task.findOneAndUpdate({ _id: req.params.id, companyId }, { status }, { new: true });
     if (!task) return res.status(404).json({ error: 'Task not found or unauthorized' });
 
-    await createNotification({
+    const participants = new Set([
+      ...assigneeIdSet(task),
+      String(task.assignedById || ''),
+    ]);
+    await createTaskScopedNotifications({
       companyId,
       type: 'Update',
       title: 'Task Status Updated',
       message: `${task.title} is now "${status}" for ${task.assigneeName || 'assignee'}.`,
       senderId: actorId || task.assignedById || 'system',
       senderName: actorName || task.assignedByName || 'System',
+      participantIds: Array.from(participants),
     });
 
     res.json({ task });
@@ -221,13 +273,18 @@ router.patch('/:id/submission', async (req, res, next) => {
     );
     if (!task) return res.status(404).json({ error: 'Task not found or unauthorized' });
 
-    await createNotification({
+    const participants = new Set([
+      ...assigneeIdSet(task),
+      String(task.assignedById || ''),
+    ]);
+    await createTaskScopedNotifications({
       companyId,
       type: 'Task',
       title: 'Task Completed',
       message: `${task.assigneeName || 'Assignee'} submitted "${task.title}" for review.`,
       senderId: actorId || task.assigneeId || 'system',
       senderName: actorName || task.assigneeName || 'System',
+      participantIds: Array.from(participants),
     });
 
     res.json({ task });
@@ -265,13 +322,19 @@ router.post('/:id/messages', async (req, res, next) => {
       { new: true }
     );
 
-    await createNotification({
+    const participants = new Set([
+      ...assigneeIdSet(task),
+      String(task.assignedById || ''),
+      String(senderId || ''),
+    ]);
+    await createTaskScopedNotifications({
       companyId,
       type: 'Message',
       title: `New Task Message: ${task.title}`,
       message: `${senderName}: ${String(text || '').slice(0, 140)}`,
       senderId: senderId || 'system',
       senderName: senderName || 'System',
+      participantIds: Array.from(participants),
     });
 
     res.json({ task });
@@ -409,13 +472,18 @@ router.patch('/:id', async (req, res, next) => {
     );
     if (!task) return res.status(404).json({ error: 'Task not found or unauthorized' });
 
-    await createNotification({
+    const participants = new Set([
+      ...assigneeIdSet(task),
+      String(task.assignedById || ''),
+    ]);
+    await createTaskScopedNotifications({
       companyId,
       type: 'Update',
       title: 'Task Updated',
       message: `Task "${task.title}" was updated${task.assigneeName ? ` for ${task.assigneeName}` : ''}.`,
       senderId: actorId || task.assignedById || 'system',
       senderName: actorName || task.assignedByName || 'System',
+      participantIds: Array.from(participants),
     });
 
     res.json({ task });

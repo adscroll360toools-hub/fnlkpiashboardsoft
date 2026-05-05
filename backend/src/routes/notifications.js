@@ -1,7 +1,31 @@
 import express from 'express';
 import Notification from '../models/Notification.js';
+import User from '../models/User.js';
 
 const router = express.Router();
+
+async function resolveUserRole(companyId, userId, fallbackRole) {
+  if (fallbackRole) return String(fallbackRole).toLowerCase();
+  if (!companyId || !userId) return '';
+  const user = await User.findOne({ _id: userId, companyId }).select('role').lean();
+  return String(user?.role || '').toLowerCase();
+}
+
+function buildVisibilityFilter(userRole, userId) {
+  const normalizedRole = String(userRole || '').toLowerCase();
+  if (normalizedRole === 'admin' || normalizedRole === 'controller') {
+    return {};
+  }
+  return {
+    $or: [
+      { audienceType: 'public' },
+      { audienceType: 'role', targetRole: normalizedRole },
+      { audienceType: 'user', targetUserId: String(userId) },
+      // Backward compatibility: old records without audienceType are treated as public
+      { audienceType: { $exists: false } },
+    ],
+  };
+}
 
 // Get notifications for a company
 router.get('/', async (req, res) => {
@@ -11,16 +35,14 @@ router.get('/', async (req, res) => {
       return res.status(400).json({ error: 'companyId, userId and userRole are required' });
     }
 
+    const resolvedRole = await resolveUserRole(companyId, userId, userRole);
+    const visibilityFilter = buildVisibilityFilter(resolvedRole, userId);
     const notifications = await Notification.find({
       companyId,
-      $or: [
-        { audienceType: 'public' },
-        { audienceType: 'role', targetRole: String(userRole) },
-        { audienceType: 'user', targetUserId: String(userId) },
-        // Backward compatibility: old records without audienceType are treated as public
-        { audienceType: { $exists: false } },
-      ],
-    }).sort({ createdAt: -1 }).limit(50);
+      ...visibilityFilter,
+    })
+      .sort({ createdAt: -1 })
+      .limit(50);
     const withRead = notifications.map((n) => {
       const obj = n.toObject();
       obj.read = Array.isArray(obj.readByUserIds) ? obj.readByUserIds.includes(String(userId)) : false;
@@ -103,15 +125,12 @@ router.post('/read-all', async (req, res) => {
     if (!companyId || !userId || !userRole) {
       return res.status(400).json({ error: 'companyId, userId and userRole are required' });
     }
+    const resolvedRole = await resolveUserRole(companyId, userId, userRole);
+    const visibilityFilter = buildVisibilityFilter(resolvedRole, userId);
     await Notification.updateMany(
       {
         companyId,
-        $or: [
-          { audienceType: 'public' },
-          { audienceType: 'role', targetRole: String(userRole) },
-          { audienceType: 'user', targetUserId: String(userId) },
-          { audienceType: { $exists: false } },
-        ],
+        ...visibilityFilter,
       },
       { $addToSet: { readByUserIds: String(userId) } }
     );

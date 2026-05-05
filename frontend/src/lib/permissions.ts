@@ -4,6 +4,9 @@ export interface EffectivePermissions {
   tasks_create: boolean;
   tasks_assign: boolean;
   tasks_delete: boolean;
+  chat_access: boolean;
+  notifications_send: boolean;
+  notifications_view_all: boolean;
   users_manage: boolean;
   roles_manage: boolean;
   reports_view: boolean;
@@ -15,6 +18,9 @@ const ALL: EffectivePermissions = {
   tasks_create: true,
   tasks_assign: true,
   tasks_delete: true,
+  chat_access: true,
+  notifications_send: true,
+  notifications_view_all: true,
   users_manage: true,
   roles_manage: true,
   reports_view: true,
@@ -26,6 +32,9 @@ const CTRL: EffectivePermissions = {
   tasks_create: true,
   tasks_assign: true,
   tasks_delete: true,
+  chat_access: true,
+  notifications_send: true,
+  notifications_view_all: true,
   users_manage: false,
   roles_manage: true,
   reports_view: true,
@@ -37,6 +46,9 @@ const EMP: EffectivePermissions = {
   tasks_create: false,
   tasks_assign: false,
   tasks_delete: false,
+  chat_access: true,
+  notifications_send: false,
+  notifications_view_all: false,
   users_manage: false,
   roles_manage: false,
   reports_view: true,
@@ -50,6 +62,9 @@ function fromRecord(p: Record<string, boolean> | undefined): Partial<EffectivePe
     tasks_create: p.tasks_create,
     tasks_assign: p.tasks_assign,
     tasks_delete: p.tasks_delete,
+    chat_access: p.chat_access,
+    notifications_send: p.notifications_send,
+    notifications_view_all: p.notifications_view_all,
     users_manage: p.users_manage,
     roles_manage: p.roles_manage,
     reports_view: p.reports_view,
